@@ -1,0 +1,137 @@
+rent-anything-backend/
+│
+├── src/
+│   ├── app.module.ts
+│   ├── app.controller.ts
+│   ├── app.service.ts
+│   ├── main.ts
+│
+│   ├── config/
+│   │   ├── database.config.ts
+│   │   ├── swagger.config.ts
+│   │   └── jwt.config.ts
+│
+│   ├── common/
+│   │   ├── decorators/
+│   │   │   ├── roles.decorator.ts
+│   │   │   └── user.decorator.ts
+│   │   ├── guards/
+│   │   │   ├── jwt-auth.guard.ts
+│   │   │   └── roles.guard.ts
+│   │   ├── enums/
+│   │   │   ├── role.enum.ts
+│   │   │   ├── status.enum.ts
+│   │   ├── interceptors/
+│   │   └── filters/
+│
+│   ├── auth/
+│   │   ├── dto/
+│   │   │   ├── login.dto.ts
+│   │   │   ├── register.dto.ts
+│   │   │   └── refresh-token.dto.ts
+│   │   ├── strategies/
+│   │   │   ├── jwt.strategy.ts
+│   │   │   └── local.strategy.ts
+│   │   ├── auth.controller.ts
+│   │   ├── auth.service.ts
+│   │   └── auth.module.ts
+│
+│   ├── user/
+│   │   ├── dto/
+│   │   │   ├── create-user.dto.ts
+│   │   │   └── update-user.dto.ts
+│   │   ├── entities/
+│   │   │   ├── user.entity.ts
+│   │   │   ├── individual-user.entity.ts
+│   │   │   └── company.entity.ts
+│   │   ├── user.controller.ts
+│   │   ├── user.service.ts
+│   │   └── user.module.ts
+│
+│   ├── address/
+│   │   ├── entities/address.entity.ts
+│   │   ├── address.controller.ts
+│   │   ├── address.service.ts
+│   │   └── address.module.ts
+│
+│   ├── category/
+│   │   ├── entities/category.entity.ts
+│   │   ├── category.controller.ts
+│   │   ├── category.service.ts
+│   │   └── category.module.ts
+│
+│   ├── item/
+│   │   ├── dto/
+│   │   │   ├── create-item.dto.ts
+│   │   │   └── update-item.dto.ts
+│   │   ├── entities/
+│   │   │   ├── item.entity.ts
+│   │   │   ├── vehicle-details.entity.ts
+│   │   │   ├── electronics-details.entity.ts
+│   │   │   ├── home-details.entity.ts
+│   │   │   ├── sports-details.entity.ts
+│   │   │   └── fashion-details.entity.ts
+│   │   ├── item.controller.ts
+│   │   ├── item.service.ts
+│   │   └── item.module.ts
+│
+│   ├── rental/
+│   │   ├── dto/
+│   │   ├── entities/
+│   │   │   ├── rental-request.entity.ts
+│   │   │   ├── rental.entity.ts
+│   │   │   └── rental-extension.entity.ts
+│   │   ├── rental.controller.ts
+│   │   ├── rental.service.ts
+│   │   └── rental.module.ts
+│
+│   ├── pricing/
+│   │   ├── entities/item-pricing.entity.ts
+│   │   ├── pricing.controller.ts
+│   │   ├── pricing.service.ts
+│   │   └── pricing.module.ts
+│
+│   ├── payment/
+│   │   ├── entities/payment.entity.ts
+│   │   ├── payment.controller.ts
+│   │   ├── payment.service.ts
+│   │   └── payment.module.ts
+│
+│   ├── review/
+│   │   ├── entities/review.entity.ts
+│   │   ├── review.controller.ts
+│   │   ├── review.service.ts
+│   │   └── review.module.ts
+│
+│   ├── chat/
+│   │   ├── entities/
+│   │   │   ├── chat-thread.entity.ts
+│   │   │   └── chat-message.entity.ts
+│   │   ├── chat.controller.ts
+│   │   ├── chat.service.ts
+│   │   └── chat.module.ts
+│
+│   ├── incident/
+│   │   ├── entities/
+│   │   │   ├── incident-report.entity.ts
+│   │   │   └── incident-media.entity.ts
+│   │   ├── incident.controller.ts
+│   │   ├── incident.service.ts
+│   │   └── incident.module.ts
+│
+│   ├── notification/
+│   │   ├── entities/notification.entity.ts
+│   │   ├── notification.controller.ts
+│   │   ├── notification.service.ts
+│   │   └── notification.module.ts
+│
+│   └── availability/
+│       ├── entities/availability.entity.ts
+│       ├── availability.controller.ts
+│       ├── availability.service.ts
+│       └── availability.module.ts
+│
+├── .env
+├── ormconfig.ts
+├── package.json
+└── tsconfig.json
