@@ -1,3 +1,7 @@
+ERD link: https://mermaid.ai/app/projects/991052aa-1d04-443f-b1af-f83a2db9f285/diagrams/dc89e4c9-be67-4161-9d45-9890ddf9ea86/share/invite/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkb2N1bWVudElEIjoiZGM4OWU0YzktYmU2Ny00MTYxLTlkNDUtOTg5MGRkZjllYTg2IiwiYWNjZXNzIjoiVmlldyIsImlhdCI6MTc2OTc2MTQ0NH0.0nnmVBC-yEjsiHAdCbYynO98BBuDD-z8gEqUuPpY-ZE ;
+
+
+
 rent-anything-backend/
 │
 ├── src/
