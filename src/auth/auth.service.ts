@@ -1,0 +1,130 @@
+//src/auth/auth.service.ts
+
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User, UserRole } from '../user/entities/user.entity';
+import { IndividualUser } from '../user/entities/individual-user.entity';
+import { Company } from '../user/entities/company.entity';
+import { Address } from '../address/entities/address.entity';
+import { RegisterIndividualDto, RegisterCompanyDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    @InjectRepository(IndividualUser)
+    private individualUserRepository: Repository<IndividualUser>,
+    @InjectRepository(Company)
+    private companyRepository: Repository<Company>,
+    @InjectRepository(Address)
+    private addressRepository: Repository<Address>,
+    private jwtService: JwtService,
+  ) {}
+
+  async registerIndividual(dto: RegisterIndividualDto) {
+    const existingUser = await this.userRepository.findOne({ where: { phone: dto.phone } });
+    if (existingUser) {
+      throw new ConflictException('Phone number already registered');
+    }
+
+    const user = this.userRepository.create({
+      phone: dto.phone,
+      email: dto.email,
+      role: UserRole.INDIVIDUAL,
+      status: 'active',
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    const individual = this.individualUserRepository.create({
+      user: savedUser,
+      fullName: dto.fullName,
+    });
+    await this.individualUserRepository.save(individual);
+
+    const address = this.addressRepository.create({
+      user: savedUser,
+      address: dto.address,
+    });
+    await this.addressRepository.save(address);
+
+    return { message: 'Individual registration successful' };
+  }
+
+  async registerCompany(dto: RegisterCompanyDto) {
+    const existingUser = await this.userRepository.findOne({ where: { phone: dto.phone } });
+    if (existingUser) {
+      throw new ConflictException('Phone number already registered');
+    }
+
+    const user = this.userRepository.create({
+      phone: dto.phone,
+      email: dto.email,
+      role: UserRole.COMPANY,
+      status: 'active',
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    const company = this.companyRepository.create({
+      user: savedUser,
+      companyName: dto.companyName,
+      registrationNumber: dto.registrationNumber,
+    });
+    await this.companyRepository.save(company);
+
+    const address = this.addressRepository.create({
+      user: savedUser,
+      address: dto.officeAddress,
+    });
+    await this.addressRepository.save(address);
+
+    return { message: 'Company registration successful' };
+  }
+
+  async login(dto: LoginDto) {
+    const user = await this.userRepository.findOne({ where: { phone: dto.phone } });
+    if (!user) {
+      throw new NotFoundException('User not found. Please register first.');
+    }
+
+    // In a real app, send OTP here. For now, it's mocked to 1111.
+    return { message: 'OTP sent successfully', phone: dto.phone };
+  }
+
+  async verifyOtp(dto: VerifyOtpDto) {
+    if (dto.otp !== '1111') {
+      throw new UnauthorizedException('Invalid OTP');
+    }
+
+    const user = await this.userRepository.findOne({ 
+      where: { phone: dto.phone },
+      relations: ['individualUser', 'company']
+    });
+    
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const payload = { 
+      sub: user.id, 
+      phone: user.phone, 
+      role: user.role 
+    };
+
+    return {
+      access_token: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        phone: user.phone,
+        role: user.role,
+        name: user.role === UserRole.INDIVIDUAL ? user.individualUser?.fullName : user.company?.companyName,
+      }
+    };
+  }
+}
