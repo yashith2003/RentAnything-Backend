@@ -13,7 +13,10 @@ export class UserService {
   ) {}
 
   async findOne(id: number): Promise<User | null> {
-    return this.userRepository.findOne({ where: { id } });
+    return this.userRepository.findOne({ 
+      where: { id },
+      relations: ['individualUser', 'company', 'addresses']
+    });
   }
 
   async findByPhone(phone: string): Promise<User | null> {

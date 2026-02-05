@@ -9,6 +9,11 @@ import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
+import { CategoryModule } from './category/category.module';
+import { ItemModule } from './item/item.module';
+import { PricingModule } from './pricing/pricing.module';
+import { AvailabilityModule } from './availability/availability.module';
+import { AddressModule } from './address/address.module';
 
 @Module({
   imports: [
@@ -32,6 +37,11 @@ import { UserModule } from './user/user.module';
     }),
     AuthModule,
     UserModule,
+    CategoryModule,
+    ItemModule,
+    PricingModule,
+    AvailabilityModule,
+    AddressModule,
   ],
   controllers: [AppController],
   providers: [AppService],
