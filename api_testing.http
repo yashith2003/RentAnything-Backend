@@ -1,0 +1,69 @@
+### API Testing Guide for RentAnything Backend
+
+This file contains requests to test the authentication and incident reporting flow.
+You can use the **REST Client** extension in VS Code to run these requests directly.
+
+@baseUrl = http://localhost:3000
+@phone = +94771234567
+
+### 1. Register Individual User
+POST {{baseUrl}}/auth/register/individual
+Content-Type: application/json
+
+{
+  "fullName": "John Doe",
+  "email": "john@example.com",
+  "phone": "{{phone}}",
+  "address": "123 Main St, Colombo"
+}
+
+### 2. Login (Triggers OTP)
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "phone": "{{phone}}"
+}
+
+### 3. Verify OTP (Get JWT Token)
+# @name verifyOtp
+POST {{baseUrl}}/auth/verify-otp
+Content-Type: application/json
+
+{
+  "phone": "{{phone}}",
+  "otp": "1111"
+}
+
+### Save the access token from the response above
+@accessToken = {{verifyOtp.response.body.access_token}}
+
+### 4. Create Incident Report
+# Note: You need a valid rentalId in your database to run this successfully.
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "rentalId": 1,
+  "description": "The rented professional camera has a small scratch on the lens after return.",
+  "media": [
+    {
+      "mediaType": "image",
+      "mediaUrl": "https://storage.rentanything.com/incidents/scratch1.jpg"
+    }
+  ]
+}
+
+### 5. Get All Incidents
+GET {{baseUrl}}/incidents
+Authorization: Bearer {{accessToken}}
+
+### 6. Get Specific Incident
+GET {{baseUrl}}/incidents/1
+Authorization: Bearer {{accessToken}}
+
+### 7. Get All Rentals (To find a valid rentalId)
+GET {{baseUrl}}/rentals
+Authorization: Bearer {{accessToken}}

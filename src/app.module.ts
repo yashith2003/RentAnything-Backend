@@ -14,6 +14,9 @@ import { ItemModule } from './item/item.module';
 import { PricingModule } from './pricing/pricing.module';
 import { AvailabilityModule } from './availability/availability.module';
 import { AddressModule } from './address/address.module';
+import { RentalModule } from './rental/rental.module';
+import { IncidentModule } from './incident/incident.module';
+
 
 @Module({
   imports: [
@@ -42,7 +45,10 @@ import { AddressModule } from './address/address.module';
     PricingModule,
     AvailabilityModule,
     AddressModule,
+    RentalModule,
+    IncidentModule,
   ],
+
   controllers: [AppController],
   providers: [AppService],
 })
