@@ -7,6 +7,9 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
+import redisConfig from './config/redis.config';
+import { CacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-redis-yet';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { CategoryModule } from './category/category.module';
@@ -16,13 +19,29 @@ import { AvailabilityModule } from './availability/availability.module';
 import { AddressModule } from './address/address.module';
 import { RentalModule } from './rental/rental.module';
 import { IncidentModule } from './incident/incident.module';
+import { ChatModule } from './chat/chat.module';
 
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, jwtConfig],
+      load: [databaseConfig, jwtConfig, redisConfig],
+    }),
+    CacheModule.registerAsync({
+      isGlobal: true,
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        store: await redisStore({
+          socket: {
+            host: configService.get<string>('redis.host'),
+            port: configService.get<number>('redis.port'),
+          },
+          password: configService.get<string>('redis.password'),
+          ttl: (configService.get<number>('redis.ttl') || 600) * 1000,
+        }),
+      }),
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -45,6 +64,7 @@ import { IncidentModule } from './incident/incident.module';
     PricingModule,
     AvailabilityModule,
     AddressModule,
+    ChatModule,
     RentalModule,
     IncidentModule,
   ],

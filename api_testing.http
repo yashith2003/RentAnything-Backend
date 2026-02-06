@@ -1,10 +1,13 @@
 ### API Testing Guide for RentAnything Backend
 
-This file contains requests to test the authentication and incident reporting flow.
-You can use the **REST Client** extension in VS Code to run these requests directly.
-
 @baseUrl = http://localhost:3000
 @phone = +94771234567
+@companyPhone = +94112345678
+@email = john@example.com
+
+### ------------------------------------------------------------------------
+### AUTHENTICATION
+### ------------------------------------------------------------------------
 
 ### 1. Register Individual User
 POST {{baseUrl}}/auth/register/individual
@@ -12,12 +15,24 @@ Content-Type: application/json
 
 {
   "fullName": "John Doe",
-  "email": "john@example.com",
+  "email": "{{email}}",
   "phone": "{{phone}}",
   "address": "123 Main St, Colombo"
 }
 
-### 2. Login (Triggers OTP)
+### 2. Register Company User
+POST {{baseUrl}}/auth/register/company
+Content-Type: application/json
+
+{
+  "companyName": "Tech Corp",
+  "registrationNumber": "REG123456",
+  "email": "info@techcorp.com",
+  "phone": "{{companyPhone}}",
+  "officeAddress": "456 Business Ave, Colombo"
+}
+
+### 3. Login (Triggers OTP)
 # @name login
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
@@ -26,7 +41,7 @@ Content-Type: application/json
   "phone": "{{phone}}"
 }
 
-### 3. Verify OTP (Get JWT Token)
+### 4. Verify OTP (Get JWT Token)
 # @name verifyOtp
 POST {{baseUrl}}/auth/verify-otp
 Content-Type: application/json
@@ -36,34 +51,182 @@ Content-Type: application/json
   "otp": "1111"
 }
 
-### Save the access token from the response above
+### Save Token
 @accessToken = {{verifyOtp.response.body.access_token}}
+@refreshToken = {{verifyOtp.response.body.refresh_token}}
 
-### 4. Create Incident Report
-# Note: You need a valid rentalId in your database to run this successfully.
+### 5. Refresh Token
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+### ------------------------------------------------------------------------
+### USER & ADDRESS
+### ------------------------------------------------------------------------
+
+### 6. Get User Profile
+GET {{baseUrl}}/user/profile
+Authorization: Bearer {{accessToken}}
+
+### 7. Create Address
+POST {{baseUrl}}/addresses
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "address": "No 45, Galle Road, Colombo"
+}
+
+### 8. Get All Addresses
+GET {{baseUrl}}/addresses
+Authorization: Bearer {{accessToken}}
+
+### ------------------------------------------------------------------------
+### CATEGORY
+### ------------------------------------------------------------------------
+
+### 9. Create Category
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Vehicles"
+}
+
+### 10. Get All Categories
+GET {{baseUrl}}/categories
+
+### ------------------------------------------------------------------------
+### ITEMS
+### ------------------------------------------------------------------------
+
+### 11. Create Item
+# @name createItem
+POST {{baseUrl}}/items
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Mountain Bike for Rent",
+  "description": "Standard mountain bike in excellent condition.",
+  "categoryId": 1,
+  "addressId": 1,
+  "condition": "Excellent",
+  "status": "available",
+  "deliveryAvailable": true,
+  "pickupAvailable": true
+}
+
+@itemId = {{createItem.response.body.id}}
+
+### 12. Get All Items
+GET {{baseUrl}}/items
+
+### 13. Get All Items by Category
+GET {{baseUrl}}/items?cat=1
+
+### 14. Get Specific Item
+GET {{baseUrl}}/items/{{itemId}}
+
+### 15. Update Item
+PATCH {{baseUrl}}/items/{{itemId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Mountain Bike for Rent - Updated",
+  "condition": "Good"
+}
+
+### 16. Delete Item
+DELETE {{baseUrl}}/items/{{itemId}}
+Authorization: Bearer {{accessToken}}
+
+### ------------------------------------------------------------------------
+### PRICING & AVAILABILITY
+### ------------------------------------------------------------------------
+
+### 17. Set Item Pricing
+POST {{baseUrl}}/pricing
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "itemId": 1,
+  "rateType": "daily",
+  "price": 1000
+}
+
+### 18. Set Item Availability
+POST {{baseUrl}}/availability
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "itemId": 1,
+  "fromDate": "2026-02-10",
+  "toDate": "2026-02-20"
+}
+
+### ------------------------------------------------------------------------
+### RENTALS
+### ------------------------------------------------------------------------
+
+### 19. Get All Rentals
+GET {{baseUrl}}/rentals
+Authorization: Bearer {{accessToken}}
+
+### ------------------------------------------------------------------------
+### INCIDENTS
+### ------------------------------------------------------------------------
+
+### 20. Create Incident Report
 POST {{baseUrl}}/incidents
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
   "rentalId": 1,
-  "description": "The rented professional camera has a small scratch on the lens after return.",
+  "description": "The rented item was damaged.",
   "media": [
     {
       "mediaType": "image",
-      "mediaUrl": "https://storage.rentanything.com/incidents/scratch1.jpg"
+      "mediaUrl": "https://example.com/damage.jpg"
     }
   ]
 }
 
-### 5. Get All Incidents
+### 21. Get All Incidents
 GET {{baseUrl}}/incidents
 Authorization: Bearer {{accessToken}}
 
-### 6. Get Specific Incident
+### 22. Get Specific Incident
 GET {{baseUrl}}/incidents/1
 Authorization: Bearer {{accessToken}}
 
-### 7. Get All Rentals (To find a valid rentalId)
-GET {{baseUrl}}/rentals
+### ------------------------------------------------------------------------
+### CHAT
+### ------------------------------------------------------------------------
+
+### 23. Create Chat Thread
+# Requires valid itemId (from another user) and sellerId
+@sellerId = 2
+POST {{baseUrl}}/chat/thread
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "itemId": 1,
+  "sellerId": {{sellerId}}
+}
+
+### 24. Get User Threads
+GET {{baseUrl}}/chat/threads
+Authorization: Bearer {{accessToken}}
+
+### 25. Get Thread Messages
+GET {{baseUrl}}/chat/thread/1/messages
 Authorization: Bearer {{accessToken}}
