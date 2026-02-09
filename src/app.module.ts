@@ -32,16 +32,23 @@ import { ChatModule } from './chat/chat.module';
       isGlobal: true,
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        store: await redisStore({
-          socket: {
-            host: configService.get<string>('redis.host'),
-            port: configService.get<number>('redis.port'),
-          },
-          password: configService.get<string>('redis.password'),
-          ttl: (configService.get<number>('redis.ttl') || 600) * 1000,
-        }),
-      }),
+      useFactory: async (configService: ConfigService) => {
+        if (process.env.NODE_ENV === 'test') {
+          return {
+            ttl: 600 * 1000, // Memory store (default)
+          };
+        }
+        return {
+          store: await redisStore({
+            socket: {
+              host: configService.get<string>('redis.host'),
+              port: configService.get<number>('redis.port'),
+            },
+            password: configService.get<string>('redis.password'),
+            ttl: (configService.get<number>('redis.ttl') || 600) * 1000,
+          }),
+        };
+      },
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
