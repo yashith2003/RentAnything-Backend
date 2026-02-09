@@ -1,6 +1,6 @@
 ### API Testing Guide for RentAnything Backend
 
-@baseUrl = http://localhost:3000
+@baseUrl = http://localhost:3008/api
 @phone = +94771234567
 @companyPhone = +94112345678
 @email = john@example.com
@@ -52,8 +52,8 @@ Content-Type: application/json
 }
 
 ### Save Token
-@accessToken = {{verifyOtp.response.body.access_token}}
-@refreshToken = {{verifyOtp.response.body.refresh_token}}
+@accessToken = {{verifyOtp.response.body.data.access_token}}
+@refreshToken = {{verifyOtp.response.body.data.refresh_token}}
 
 ### 5. Refresh Token
 POST {{baseUrl}}/auth/refresh
@@ -99,11 +99,20 @@ Content-Type: application/json
 ### 10. Get All Categories
 GET {{baseUrl}}/categories
 
+### 11. Create Sub-Category
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Cars",
+  "parentId": 1
+}
+
 ### ------------------------------------------------------------------------
 ### ITEMS
 ### ------------------------------------------------------------------------
 
-### 11. Create Item
+### 12. Create Item
 # @name createItem
 POST {{baseUrl}}/items
 Authorization: Bearer {{accessToken}}
@@ -120,18 +129,15 @@ Content-Type: application/json
   "pickupAvailable": true
 }
 
-@itemId = {{createItem.response.body.id}}
+@itemId = {{createItem.response.body.data.id}}
 
-### 12. Get All Items
-GET {{baseUrl}}/items
-
-### 13. Get All Items by Category
+### 14. Get All Items by Category
 GET {{baseUrl}}/items?cat=1
 
-### 14. Get Specific Item
+### 15. Get Specific Item
 GET {{baseUrl}}/items/{{itemId}}
 
-### 15. Update Item
+### 16. Update Item
 PATCH {{baseUrl}}/items/{{itemId}}
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
@@ -141,7 +147,7 @@ Content-Type: application/json
   "condition": "Good"
 }
 
-### 16. Delete Item
+### 17. Delete Item
 DELETE {{baseUrl}}/items/{{itemId}}
 Authorization: Bearer {{accessToken}}
 
@@ -149,7 +155,7 @@ Authorization: Bearer {{accessToken}}
 ### PRICING & AVAILABILITY
 ### ------------------------------------------------------------------------
 
-### 17. Set Item Pricing
+### 18. Set Item Pricing
 POST {{baseUrl}}/pricing
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
@@ -160,7 +166,7 @@ Content-Type: application/json
   "price": 1000
 }
 
-### 18. Set Item Availability
+### 19. Set Item Availability
 POST {{baseUrl}}/availability
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
@@ -175,7 +181,7 @@ Content-Type: application/json
 ### RENTALS
 ### ------------------------------------------------------------------------
 
-### 19. Get All Rentals
+### 20. Get All Rentals
 GET {{baseUrl}}/rentals
 Authorization: Bearer {{accessToken}}
 
@@ -183,7 +189,7 @@ Authorization: Bearer {{accessToken}}
 ### INCIDENTS
 ### ------------------------------------------------------------------------
 
-### 20. Create Incident Report
+### 21. Create Incident Report
 POST {{baseUrl}}/incidents
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
@@ -199,11 +205,11 @@ Content-Type: application/json
   ]
 }
 
-### 21. Get All Incidents
+### 22. Get All Incidents
 GET {{baseUrl}}/incidents
 Authorization: Bearer {{accessToken}}
 
-### 22. Get Specific Incident
+### 23. Get Specific Incident
 GET {{baseUrl}}/incidents/1
 Authorization: Bearer {{accessToken}}
 
@@ -211,7 +217,7 @@ Authorization: Bearer {{accessToken}}
 ### CHAT
 ### ------------------------------------------------------------------------
 
-### 23. Create Chat Thread
+### 24. Create Chat Thread
 # Requires valid itemId (from another user) and sellerId
 @sellerId = 2
 POST {{baseUrl}}/chat/thread
@@ -222,10 +228,6 @@ Content-Type: application/json
   "itemId": 1,
   "sellerId": {{sellerId}}
 }
-
-### 24. Get User Threads
-GET {{baseUrl}}/chat/threads
-Authorization: Bearer {{accessToken}}
 
 ### 25. Get Thread Messages
 GET {{baseUrl}}/chat/thread/1/messages

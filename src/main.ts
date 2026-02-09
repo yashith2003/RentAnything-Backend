@@ -4,12 +4,18 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { setupSwagger } from './config/swagger.config';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Set global prefix
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', { exclude: ['docs'] });
+
+  // Register global filters and interceptors
+  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalInterceptors(new TransformInterceptor());
 
   // Enable global validation pipe
   app.useGlobalPipes(

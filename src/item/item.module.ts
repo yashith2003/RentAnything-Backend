@@ -11,10 +11,17 @@ import { HomeDetails } from './entities/home-details.entity';
 import { ItemService } from './item.service';
 import { ItemController } from './item.controller';
 
+import { User } from '../user/entities/user.entity';
+import { Category } from '../category/entities/category.entity';
+import { Address } from '../address/entities/address.entity';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Item,
+      User,
+      Category,
+      Address,
       VehicleDetails,
       ElectronicsDetails,
       FashionDetails,
