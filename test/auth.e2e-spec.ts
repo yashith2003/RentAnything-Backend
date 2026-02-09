@@ -73,9 +73,6 @@ describe('AuthModule (e2e)', () => {
       .post('/api/auth/register/individual')
       .send(testUser);
     
-    if (res.status !== 201) {
-      console.log('REGISTRATION ERROR:', JSON.stringify(res.body, null, 2));
-    }
     
     expect(res.status).toBe(201);
     expect(res.body.data.message).toBe('Individual registration successful');
@@ -88,10 +85,7 @@ describe('AuthModule (e2e)', () => {
         phone: testUser.phone,
       });
     
-    if (response.status !== 200) {
-      console.log('Login Failure Body:', JSON.stringify(response.body, null, 2));
-    }
-
+    
     expect(response.status).toBe(200);
     expect(response.body.data.message).toBe('OTP sent successfully');
     expect(response.body.data.phone).toBe(testUser.phone);
@@ -105,10 +99,7 @@ describe('AuthModule (e2e)', () => {
         otp: '1111',
       });
 
-    if (response.status !== 200) {
-      console.log('Verify OTP Failure Body:', JSON.stringify(response.body, null, 2));
-    }
-
+    
     expect(response.status).toBe(200);
     expect(response.body.data.access_token).toBeDefined();
     expect(response.body.data.refresh_token).toBeDefined();

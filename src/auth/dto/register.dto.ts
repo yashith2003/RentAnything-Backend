@@ -15,7 +15,7 @@ export class RegisterIndividualDto {
   email?: string;
 
   @ApiProperty({ example: '+94771234567' })
-  @IsPhoneNumber()
+  @IsPhoneNumber('LK')
   @IsNotEmpty()
   phone: string;
 
@@ -42,7 +42,7 @@ export class RegisterCompanyDto {
   email?: string;
 
   @ApiProperty({ example: '+94112345678' })
-  @IsPhoneNumber()
+  @IsPhoneNumber('LK')
   @IsNotEmpty()
   phone: string;
 
