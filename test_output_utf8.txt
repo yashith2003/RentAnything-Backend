@@ -1,0 +1,60 @@
+
+> backend@0.0.1 test:e2e
+> jest --config ./test/jest-e2e.json test/auth.e2e-spec.ts
+
+FAIL test/auth.e2e-spec.ts
+  AuthModule (e2e)
+    × /api/auth/register/individual (POST) - Success (57 ms)
+    × /api/auth/login (POST) - Success (10 ms)
+    √ /api/auth/verify-otp (POST) - Success (Simulated) (1 ms)
+
+  ● AuthModule (e2e) › /api/auth/register/individual (POST) - Success
+
+    expected 201 "Created", got 400 "Bad Request"
+
+    [0m [90m 66 |[39m       [33m.[39mpost([32m'/api/auth/register/individual'[39m)
+     [90m 67 |[39m       [33m.[39msend(testUser)
+    [31m[1m>[22m[39m[90m 68 |[39m       [33m.[39mexpect([35m201[39m)
+     [90m    |[39m        [31m[1m^[22m[39m
+     [90m 69 |[39m       [33m.[39mexpect((res) [33m=>[39m {
+     [90m 70 |[39m         expect(res[33m.[39mbody[33m.[39mdata[33m.[39mphone)[33m.[39mtoBe(testUser[33m.[39mphone)[33m;[39m
+     [90m 71 |[39m         expect(res[33m.[39mbody[33m.[39mdata[33m.[39memail)[33m.[39mtoBe(testUser[33m.[39memail)[33m;[39m[0m
+
+      at Object.<anonymous> (auth.e2e-spec.ts:68:8)
+      ----
+      at Test._assertStatus (../node_modules/supertest/lib/test.js:309:14)
+      at ../node_modules/supertest/lib/test.js:365:13
+      at Test._assertFunction (../node_modules/supertest/lib/test.js:342:13)
+      at Test.assert (../node_modules/supertest/lib/test.js:195:23)
+      at localAssert (../node_modules/supertest/lib/test.js:138:14)
+      at Server.<anonymous> (../node_modules/supertest/lib/test.js:152:11)
+
+  ● AuthModule (e2e) › /api/auth/login (POST) - Success
+
+    expected 201 "Created", got 400 "Bad Request"
+
+    [0m [90m 80 |[39m         password[33m:[39m testUser[33m.[39mpassword[33m,[39m
+     [90m 81 |[39m       })
+    [31m[1m>[22m[39m[90m 82 |[39m       [33m.[39mexpect([35m201[39m)[33m;[39m
+     [90m    |[39m        [31m[1m^[22m[39m
+     [90m 83 |[39m
+     [90m 84 |[39m     expect(response[33m.[39mbody[33m.[39mdata[33m.[39mid)[33m.[39mtoBeDefined()[33m;[39m
+     [90m 85 |[39m   })[33m;[39m[0m
+
+      at Object.<anonymous> (auth.e2e-spec.ts:82:8)
+      ----
+      at Test._assertStatus (../node_modules/supertest/lib/test.js:309:14)
+      at ../node_modules/supertest/lib/test.js:365:13
+      at Test._assertFunction (../node_modules/supertest/lib/test.js:342:13)
+      at Test.assert (../node_modules/supertest/lib/test.js:195:23)
+      at localAssert (../node_modules/supertest/lib/test.js:138:14)
+      at Server.<anonymous> (../node_modules/supertest/lib/test.js:152:11)
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 1 passed, 3 total
+Snapshots:   0 total
+Time:        3.877 s, estimated 4 s
+Ran all test suites matching test/auth.e2e-spec.ts.
+Jest did not exit one second after the test run has completed.
+
+'This usually means that there are asynchronous operations that weren't stopped in your tests. Consider running Jest with `--detectOpenHandles` to troubleshoot this issue.
