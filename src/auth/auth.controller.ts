@@ -7,11 +7,21 @@ import { RegisterIndividualDto, RegisterCompanyDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { CheckEmailDto } from './dto/check-email.dto';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Post('check-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Check if email is available' })
+  @ApiResponse({ status: 200, description: 'Email is available' })
+  @ApiResponse({ status: 409, description: 'Email already registered' })
+  async checkEmail(@Body() dto: CheckEmailDto) {
+    return this.authService.checkEmail(dto);
+  }
 
   @Post('register/individual')
   @ApiOperation({ summary: 'Register a new individual user' })

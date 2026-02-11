@@ -1,7 +1,9 @@
 //src/auth/auth.service.ts
 
-import { Injectable, UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,6 +15,7 @@ import { RegisterIndividualDto, RegisterCompanyDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { CheckEmailDto } from './dto/check-email.dto';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +28,8 @@ export class AuthService {
     private companyRepository: Repository<Company>,
     @InjectRepository(Address)
     private addressRepository: Repository<Address>,
+    @Inject(CACHE_MANAGER) 
+    private cacheManager: Cache,
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
@@ -49,6 +54,14 @@ export class AuthService {
     };
   }
 
+  async checkEmail(dto: CheckEmailDto) {
+    const user = await this.userRepository.findOne({ where: { email: dto.email } });
+    if (user) {
+      throw new ConflictException('Email already registered');
+    }
+    return { available: true };
+  }
+
   async registerIndividual(dto: RegisterIndividualDto) {
     const existingUserByPhone = await this.userRepository.findOne({ where: { phone: dto.phone } });
     if (existingUserByPhone) {
@@ -62,6 +75,13 @@ export class AuthService {
       }
     }
 
+    // Cache the registration data for 10 minutes (600 seconds * 1000ms)
+    await this.cacheManager.set(`reg_ind_${dto.phone}`, dto, 600000);
+
+    return { message: 'OTP sent successfully. Please verify to complete registration.' };
+  }
+
+  private async persistIndividual(dto: RegisterIndividualDto) {
     const user = this.userRepository.create({
       phone: dto.phone,
       email: dto.email,
@@ -83,7 +103,7 @@ export class AuthService {
     });
     await this.addressRepository.save(address);
 
-    return { message: 'Individual registration successful' };
+    return savedUser;
   }
 
   async registerCompany(dto: RegisterCompanyDto) {
@@ -99,6 +119,13 @@ export class AuthService {
       }
     }
 
+    // Cache the registration data for 10 minutes
+    await this.cacheManager.set(`reg_comp_${dto.phone}`, dto, 600000);
+
+    return { message: 'OTP sent successfully. Please verify to complete registration.' };
+  }
+
+  private async persistCompany(dto: RegisterCompanyDto) {
     const user = this.userRepository.create({
       phone: dto.phone,
       email: dto.email,
@@ -121,7 +148,7 @@ export class AuthService {
     });
     await this.addressRepository.save(address);
 
-    return { message: 'Company registration successful' };
+    return savedUser;
   }
 
   async login(dto: LoginDto) {
@@ -135,8 +162,22 @@ export class AuthService {
   }
 
   async verifyOtp(dto: VerifyOtpDto) {
+    console.log(`Verifying OTP for phone: ${dto.phone}, OTP: ${dto.otp}`);
     if (dto.otp !== '1111') {
       throw new UnauthorizedException('Invalid OTP');
+    }
+
+    // Check for cached registration data first
+    const cachedInd = await this.cacheManager.get<RegisterIndividualDto>(`reg_ind_${dto.phone}`);
+    if (cachedInd) {
+      await this.persistIndividual(cachedInd);
+      await this.cacheManager.del(`reg_ind_${dto.phone}`);
+    } else {
+      const cachedComp = await this.cacheManager.get<RegisterCompanyDto>(`reg_comp_${dto.phone}`);
+      if (cachedComp) {
+        await this.persistCompany(cachedComp);
+        await this.cacheManager.del(`reg_comp_${dto.phone}`);
+      }
     }
 
     const user = await this.userRepository.findOne({ 
@@ -145,7 +186,8 @@ export class AuthService {
     });
     
     if (!user) {
-      throw new NotFoundException('User not found');
+      console.error(`User not found for phone during OTP verification: ${dto.phone}`);
+      throw new NotFoundException('User not found. Please register first.');
     }
 
     const tokens = await this.generateTokens(user);
