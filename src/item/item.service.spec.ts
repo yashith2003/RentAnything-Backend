@@ -6,6 +6,9 @@ import { User } from '../user/entities/user.entity';
 import { Category } from '../category/entities/category.entity';
 import { Address } from '../address/entities/address.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { ItemPricing } from '../pricing/entities/item-pricing.entity';
+import { Availability } from '../availability/entities/availability.entity';
+import { CategoryDetailsService } from './services/category-details.service';
 import { NotFoundException } from '@nestjs/common';
 
 describe('ItemService', () => {
@@ -35,6 +38,16 @@ describe('ItemService', () => {
     del: jest.fn(),
   };
 
+  const mockCategoryDetailsService = {
+    saveVehicleDetails: jest.fn(),
+    saveElectronicsDetails: jest.fn(),
+    saveHomeDetails: jest.fn(),
+    saveFashionDetails: jest.fn(),
+    saveSportsDetails: jest.fn(),
+    getCategoryDetails: jest.fn(),
+    deleteCategoryDetails: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -54,6 +67,18 @@ describe('ItemService', () => {
         {
           provide: getRepositoryToken(Address),
           useValue: mockRepository,
+        },
+        {
+          provide: getRepositoryToken(ItemPricing),
+          useValue: mockRepository,
+        },
+        {
+          provide: getRepositoryToken(Availability),
+          useValue: mockRepository,
+        },
+        {
+          provide: CategoryDetailsService,
+          useValue: mockCategoryDetailsService,
         },
         {
           provide: CACHE_MANAGER,

@@ -24,6 +24,15 @@ export class ItemController {
     return this.itemService.findAll(categoryId ? +categoryId : undefined);
   }
 
+  @Get('my-items')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get items listed by the current user' })
+  findMyItems(@Request() req) {
+    console.log(`[ItemController] User ${req.user.id} is requesting their listings`);
+    return this.itemService.findMyItems(req.user.id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific item by ID' })
   findOne(@Param('id') id: string) {

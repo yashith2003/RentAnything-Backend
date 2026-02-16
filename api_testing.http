@@ -126,10 +126,25 @@ Content-Type: application/json
   "condition": "Excellent",
   "status": "available",
   "deliveryAvailable": true,
-  "pickupAvailable": true
+  "pickupAvailable": true,
+  "rateType": "daily",
+  "price": 1500,
+  "vehicleDetails": {
+    "vehicleNumber": "WP-CBA-1234",
+    "vehicleType": "Car",
+    "seatingCapacity": 5,
+    "fuelType": "Petrol",
+    "registrationDocument": "https://example.com/reg.jpg",
+    "insuranceDocument": "https://example.com/ins.jpg",
+    "revenueLicense": "https://example.com/rev.jpg"
+  }
 }
 
 @itemId = {{createItem.response.body.data.id}}
+
+### 13. Get My Items
+GET {{baseUrl}}/items/my-items
+Authorization: Bearer {{accessToken}}
 
 ### 14. Get All Items by Category
 GET {{baseUrl}}/items?cat=1

@@ -53,6 +53,21 @@ export class Item {
   @Column({ name: 'pickup_available', default: true })
   pickupAvailable: boolean;
 
+  @Column({ nullable: true })
+  phone: string;
+
+  @Column({ name: 'rental_terms', type: 'text', nullable: true })
+  rentalTerms: string;
+
+  @Column({ type: 'text', nullable: true })
+  instructions: string;
+
+  @Column({ name: 'security_deposit', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  securityDeposit: number;
+
+  @Column({ name: 'image_url', nullable: true })
+  imageUrl: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

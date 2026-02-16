@@ -21,6 +21,9 @@ export class Address {
   @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
   lng: number;
 
+  @Column({ name: 'place_id', type: 'varchar', length: 255, nullable: true })
+  placeId: string;
+
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
