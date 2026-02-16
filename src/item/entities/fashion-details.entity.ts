@@ -18,6 +18,12 @@ export class FashionDetails {
   @Column()
   gender: string;
 
+  @Column({ nullable: true })
+  brand: string;
+
+  @Column({ nullable: true })
+  material: string;
+
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

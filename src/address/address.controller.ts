@@ -1,6 +1,6 @@
 //src/address/address.controller.ts
 
-import { Get, Post, Body, UseGuards, Request, Controller } from '@nestjs/common';
+import { Get, Post, Body, UseGuards, Request, Controller, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { AddressService } from './address.service';
@@ -23,5 +23,11 @@ export class AddressController {
   @ApiOperation({ summary: 'Get all user addresses' })
   findAll(@Request() req) {
     return this.addressService.findAll(req.user.id);
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: 'Search for addresses using Nominatim' })
+  search(@Query('q') q: string) {
+    return this.addressService.search(q);
   }
 }

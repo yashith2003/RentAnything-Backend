@@ -13,9 +13,6 @@ import { CreateAvailabilityDto } from './dto/create-availability.dto';
 export class AvailabilityController {
   constructor(private readonly availabilityService: AvailabilityService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Set availability for an item' })
-  create(@Body() dto: CreateAvailabilityDto) {
-    return this.availabilityService.create(dto);
-  }
+  // Availability creation is now handled through ItemController
+  // when creating items with availability data
 }

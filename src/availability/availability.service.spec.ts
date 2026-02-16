@@ -37,14 +37,4 @@ describe('AvailabilityService', () => {
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
-
-  describe('create', () => {
-    it('should create availability entries for a range', async () => {
-      const dto = { itemId: 1, fromDate: '2026-02-10', toDate: '2026-02-11' };
-      const result = await service.create(dto);
-      expect(result).toEqual([mockAvailability]);
-      expect(repository.create).toHaveBeenCalledTimes(2); // FEB 10 and 11
-      expect(repository.save).toHaveBeenCalled();
-    });
-  });
 });

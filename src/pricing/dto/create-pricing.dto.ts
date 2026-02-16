@@ -7,8 +7,8 @@ export class CreatePricingDto {
   @IsNotEmpty()
   itemId: number;
 
-  @ApiProperty({ example: 'daily', enum: ['daily', 'weekly', 'monthly'] })
-  @IsEnum(['daily', 'weekly', 'monthly'])
+  @ApiProperty({ example: 'daily', enum: ['hourly', 'daily', 'weekly', 'monthly'] })
+  @IsEnum(['hourly', 'daily', 'weekly', 'monthly'])
   @IsNotEmpty()
   rateType: string;
 

@@ -10,10 +10,13 @@ import { SportsDetails } from './entities/sports-details.entity';
 import { HomeDetails } from './entities/home-details.entity';
 import { ItemService } from './item.service';
 import { ItemController } from './item.controller';
+import { CategoryDetailsService } from './services/category-details.service';
 
 import { User } from '../user/entities/user.entity';
 import { Category } from '../category/entities/category.entity';
 import { Address } from '../address/entities/address.entity';
+import { ItemPricing } from '../pricing/entities/item-pricing.entity';
+import { Availability } from '../availability/entities/availability.entity';
 
 @Module({
   imports: [
@@ -22,16 +25,19 @@ import { Address } from '../address/entities/address.entity';
       User,
       Category,
       Address,
+      ItemPricing,
       VehicleDetails,
       ElectronicsDetails,
       FashionDetails,
       SportsDetails,
       HomeDetails,
+      Availability,
     ]),
   ],
-  providers: [ItemService],
+  providers: [ItemService, CategoryDetailsService],
   controllers: [ItemController],
-  exports: [ItemService, TypeOrmModule],
+  exports: [ItemService, CategoryDetailsService, TypeOrmModule],
 })
 export class ItemModule {}
+
 

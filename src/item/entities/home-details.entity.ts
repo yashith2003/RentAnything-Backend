@@ -1,3 +1,5 @@
+//src/item/entities/home-details.entity.ts
+
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, UpdateDateColumn } from 'typeorm';
 import { Item } from './item.entity';
 
@@ -24,6 +26,9 @@ export class HomeDetails {
 
   @Column({ name: 'is_furnished', default: false })
   isFurnished: boolean;
+
+  @Column({ type: 'simple-json', nullable: true })
+  amenities: string[];
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;

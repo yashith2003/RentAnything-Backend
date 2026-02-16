@@ -8,9 +8,7 @@ describe('AvailabilityController', () => {
 
   const mockAvailability = { id: 1, availableDate: '2026-02-10' };
 
-  const mockAvailabilityService = {
-    create: jest.fn().mockResolvedValue([mockAvailability]),
-  };
+  const mockAvailabilityService = {};
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -31,11 +29,7 @@ describe('AvailabilityController', () => {
     expect(controller).toBeDefined();
   });
 
-  describe('create', () => {
-    it('should call service.create', async () => {
-      const dto = { itemId: 1, fromDate: '2026-02-10', toDate: '2026-02-11' };
-      await controller.create(dto);
-      expect(service.create).toHaveBeenCalledWith(dto);
-    });
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
   });
 });

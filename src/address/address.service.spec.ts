@@ -7,7 +7,7 @@ describe('AddressService', () => {
   let service: AddressService;
   let repository;
 
-  const mockAddress = {
+  const mockAddress: any = {
     id: 1,
     address: '123 Test St',
     user: { id: 1 },
@@ -53,9 +53,14 @@ describe('AddressService', () => {
   describe('findAll', () => {
     it('should return user addresses', async () => {
       const result = await service.findAll(1);
-      expect(result).toEqual([mockAddress]);
+      expect(result).toEqual([{
+        ...mockAddress,
+        mainText: '123 Test St',
+        secondaryText: '',
+      }]);
       expect(repository.find).toHaveBeenCalledWith({
         where: { user: { id: 1 } },
+        order: { updatedAt: 'DESC' },
       });
     });
   });
