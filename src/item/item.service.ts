@@ -13,7 +13,7 @@ import { ItemPricing } from '../pricing/entities/item-pricing.entity';
 import { Availability } from '../availability/entities/availability.entity';
 import { CategoryDetailsService } from './services/category-details.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import type { Cache } from 'cache-manager';
+import * as cacheManager from 'cache-manager';
 
 @Injectable()
 export class ItemService {
@@ -25,7 +25,7 @@ export class ItemService {
     @InjectRepository(ItemPricing) private pricingRepository: Repository<ItemPricing>,
     @InjectRepository(Availability) private availabilityRepository: Repository<Availability>,
     private categoryDetailsService: CategoryDetailsService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private cacheManager: cacheManager.Cache,
   ) {}
 
   async create(dto: CreateItemDto, ownerId: number) {
@@ -93,23 +93,76 @@ export class ItemService {
     }
   }
 
-  async findAll(categoryId?: number) {
-    const cacheKey = categoryId ? `items_category_${categoryId}` : 'all_items';
-    const cachedItems = await this.cacheManager.get(cacheKey);
+  async findAll(categoryId?: number, filters?: any): Promise<Item[]> {
+    const cacheKey = categoryId ? `items_category_${categoryId}_${JSON.stringify(filters)}` : 'all_items';
+    const cachedItems = await this.cacheManager.get<Item[]>(cacheKey);
     if (cachedItems) {
       return cachedItems;
     }
 
-    const where: any = {};
-    if (categoryId) {
-      where.category = { id: categoryId };
-    }
-    const items = await this.itemRepository.find({
-      where,
-      relations: ['owner', 'category', 'address'],
-    });
+    const queryBuilder = this.itemRepository.createQueryBuilder('item')
+      .leftJoinAndSelect('item.owner', 'owner')
+      .leftJoinAndSelect('owner.individualUser', 'individualUser')
+      .leftJoinAndSelect('owner.company', 'company')
+      .leftJoinAndSelect('item.category', 'category')
+      .leftJoinAndSelect('category.parentCategory', 'parentCategory')
+      .leftJoinAndSelect('item.address', 'address')
+      .leftJoinAndSelect('item.pricings', 'pricing');
 
-    await this.cacheManager.set(cacheKey, items, 300); // 5 minutes cache
+    if (categoryId) {
+      // Get all subcategories recursively
+      const subcategories = await this.categoryRepository.query(`
+        WITH RECURSIVE cat_tree AS (
+          SELECT id FROM categories WHERE id = $1
+          UNION ALL
+          SELECT c.id FROM categories c
+          INNER JOIN cat_tree ct ON c.parent_category_id = ct.id
+        )
+        SELECT id FROM cat_tree
+      `, [categoryId]);
+      const categoryIds = subcategories.map((c: any) => c.id);
+      queryBuilder.andWhere('item.category_id IN (:...categoryIds)', { categoryIds });
+      
+      // Dynamic Filter logic
+      const category = await this.categoryRepository.findOne({ 
+        where: { id: categoryId },
+        relations: ['parentCategory']
+      });
+
+      if (category && filters && Object.keys(filters).length > 0) {
+        const categoryName = (category.parentCategory?.name || category.name).toLowerCase();
+        
+        let detailTable = '';
+        if (categoryName.includes('vehicle')) detailTable = 'vehicle_details';
+        else if (categoryName.includes('electronic')) detailTable = 'electronics_details';
+        else if (categoryName.includes('home')) detailTable = 'home_details';
+        else if (categoryName.includes('fashion')) detailTable = 'fashion_details';
+        else if (categoryName.includes('sport')) detailTable = 'sports_details';
+
+        if (detailTable) {
+          queryBuilder.leftJoinAndSelect(`item.${detailTable.replace(/_([a-z])/g, (g) => g[1].toUpperCase())}`, 'details');
+          
+          // Filter out global filters (access, condition, distance) - only apply category-specific filters
+          const globalFilterKeys = ['access', 'condition', 'distance'];
+          Object.keys(filters).forEach((key) => {
+            if (!globalFilterKeys.includes(key)) {
+              const val = filters[key];
+              if (val !== undefined && val !== null && val !== '') {
+                 // Handle different filter types if needed (e.g. range)
+                 if (key === 'seatingCapacity' || key === 'price') {
+                    // Range logic would need min/max in filters
+                 } else {
+                    queryBuilder.andWhere(`details.${key} = :${key}`, { [key]: val });
+                 }
+              }
+            }
+          });
+        }
+      }
+    }
+
+    const items = await queryBuilder.getMany();
+
     await this.cacheManager.set(cacheKey, items, 300); // 5 minutes cache
     return items;
   }
@@ -123,6 +176,10 @@ export class ItemService {
   }
 
   async findOne(id: number) {
+    const cacheKey = `item:${id}`;
+    const cachedItem = await this.cacheManager.get<any>(cacheKey);
+    if (cachedItem) return cachedItem;
+
     const item = await this.itemRepository.findOne({
       where: { id },
       relations: [
@@ -144,10 +201,13 @@ export class ItemService {
     const categoryName = item.category.parentCategory?.name || item.category.name;
     const categoryDetails = await this.categoryDetailsService.getCategoryDetails(id, categoryName);
     
-    return {
+    const result = {
       ...item,
       categoryDetails,
     };
+
+    await this.cacheManager.set(cacheKey, result, 300 * 1000); // 5 mins
+    return result;
   }
 
   async update(id: number, dto: UpdateItemDto) {
@@ -161,15 +221,16 @@ export class ItemService {
     }
 
     Object.assign(item, dto);
-    const updatedUser = await this.itemRepository.save(item);
+    const updatedItem = await this.itemRepository.save(item);
     
-    // Invalidate cache
+    // Invalidate caches
     await this.cacheManager.del('all_items');
+    await this.cacheManager.del(`item:${id}`);
     if(item.category && item.category.id) {
        await this.cacheManager.del(`items_category_${item.category.id}`);
     }
 
-    return updatedUser;
+    return updatedItem;
   }
 
   async remove(id: number) {
@@ -181,12 +242,85 @@ export class ItemService {
     
     const result = await this.itemRepository.remove(item as any);
     
-     // Invalidate cache
+     // Invalidate caches
     await this.cacheManager.del('all_items');
+    await this.cacheManager.del(`item:${id}`);
      if((item as any).category && (item as any).category.id) {
        await this.cacheManager.del(`items_category_${(item as any).category.id}`);
     }
 
     return result;
+  }
+
+  async findWithinBounds(
+    bounds: { neLat: number; neLng: number; swLat: number; swLng: number },
+    categoryId?: number,
+    filters?: any
+  ) {
+    const { neLat, neLng, swLat, swLng } = bounds;
+
+    const queryBuilder = this.itemRepository.createQueryBuilder('item')
+      .leftJoinAndSelect('item.address', 'address')
+      .leftJoinAndSelect('item.pricings', 'pricing')
+      .where('address.lat BETWEEN :swLat AND :neLat', { swLat, neLat })
+      .andWhere('address.lng BETWEEN :swLng AND :neLng', { swLng, neLng });
+
+    if (categoryId) {
+      // Get all subcategories recursively
+      const subcategories = await this.categoryRepository.query(`
+        WITH RECURSIVE cat_tree AS (
+          SELECT id FROM categories WHERE id = $1
+          UNION ALL
+          SELECT c.id FROM categories c
+          INNER JOIN cat_tree ct ON c.parent_category_id = ct.id
+        )
+        SELECT id FROM cat_tree
+      `, [categoryId]);
+      const categoryIds = subcategories.map((c: any) => c.id);
+      queryBuilder.andWhere('item.category_id IN (:...categoryIds)', { categoryIds });
+
+      // Dynamic Filter logic (similar to findAll)
+      const category = await this.categoryRepository.findOne({ 
+        where: { id: categoryId },
+        relations: ['parentCategory']
+      });
+
+      if (category && filters && Object.keys(filters).length > 0) {
+        const categoryName = (category.parentCategory?.name || category.name).toLowerCase();
+        
+        let detailTable = '';
+        if (categoryName.includes('vehicle')) detailTable = 'vehicle_details';
+        else if (categoryName.includes('electronic')) detailTable = 'electronics_details';
+        else if (categoryName.includes('home')) detailTable = 'home_details';
+        else if (categoryName.includes('fashion')) detailTable = 'fashion_details';
+        else if (categoryName.includes('sport')) detailTable = 'sports_details';
+
+        if (detailTable) {
+          queryBuilder.leftJoinAndSelect(`item.${detailTable.replace(/_([a-z])/g, (g) => g[1].toUpperCase())}`, 'details');
+          
+          // Filter out global filters (access, condition, distance) - only apply category-specific filters
+          const globalFilterKeys = ['access', 'condition', 'distance'];
+          Object.keys(filters).forEach((key) => {
+            if (!globalFilterKeys.includes(key)) {
+              const val = filters[key];
+              if (val !== undefined && val !== null && val !== '') {
+                 queryBuilder.andWhere(`details.${key} = :${key}`, { [key]: val });
+              }
+            }
+          });
+        }
+      }
+    }
+
+    const items = await queryBuilder.getMany();
+
+    // Map to lightweight DTO
+    return items.map(item => ({
+      id: item.id,
+      title: item.title,
+      price: item.pricings?.[0]?.price || 0,
+      latitude: parseFloat(item.address?.lat as any),
+      longitude: parseFloat(item.address?.lng as any),
+    }));
   }
 }

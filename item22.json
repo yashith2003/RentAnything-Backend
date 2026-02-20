@@ -1,0 +1,53 @@
+{
+  "id": 22,
+  "owner": {
+    "id": 55,
+    "email": "yash@gmail.com",
+    "phone": "0701060326",
+    "passwordHash": null,
+    "role": "individual",
+    "isActive": true,
+    "status": "active",
+    "joinedAt": "2026-02-11T05:52:51.428Z",
+    "updatedAt": "2026-02-11T05:52:51.428Z",
+    "individualUser": {
+      "id": 47,
+      "avatarUrl": null,
+      "fullName": "Yashith Chandeepa",
+      "updatedAt": "2026-02-11T05:52:51.458Z"
+    },
+    "company": null
+  },
+  "category": {
+    "id": 2,
+    "name": "Electric Cars",
+    "parentCategory": {
+      "id": 1,
+      "name": "Vehicle"
+    }
+  },
+  "address": {
+    "id": 73,
+    "address": "35MP+833, Galle, Southern Province, Sri Lanka",
+    "lat": "6.08341610",
+    "lng": "80.18523970",
+    "placeId": null,
+    "updatedAt": "2026-02-16T12:19:41.400Z"
+  },
+  "title": "Allion car",
+  "description": "Yajajaha",
+  "condition": "Used (Good)",
+  "status": "available",
+  "deliveryAvailable": false,
+  "pickupAvailable": true,
+  "phone": "0701060326",
+  "rentalTerms": "Gaiaaha",
+  "instructions": "Gsiahaga",
+  "securityDeposit": "1000.00",
+  "imageUrl": "file:///data/user/0/host.exp.exponent/cache/ExperienceData/%2540anonymous%252FRentAnything-f82ac39d-5a0b-410b-bb73-c8afaa2adeac/ImagePicker/938494ae-d4ca-487e-8831-0324ae9708f1.jpeg",
+  "createdAt": "2026-02-16T12:19:41.473Z",
+  "updatedAt": "2026-02-16T12:19:41.473Z",
+  "availabilities": [],
+  "pricings": [],
+  "categoryDetails": null
+}

@@ -1,11 +1,16 @@
 //src/item/entities/item.entity.ts
 
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, OneToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { Category } from '../../category/entities/category.entity';
 import { Address } from '../../address/entities/address.entity';
 import { Availability } from '../../availability/entities/availability.entity';
 import { ItemPricing } from '../../pricing/entities/item-pricing.entity';
+import { VehicleDetails } from './vehicle-details.entity';
+import { ElectronicsDetails } from './electronics-details.entity';
+import { HomeDetails } from './home-details.entity';
+import { FashionDetails } from './fashion-details.entity';
+import { SportsDetails } from './sports-details.entity';
 
 export enum ItemStatus {
   AVAILABLE = 'available',
@@ -79,4 +84,19 @@ export class Item {
 
   @OneToMany(() => ItemPricing, (pricing) => pricing.item)
   pricings: ItemPricing[];
+
+  @OneToOne(() => VehicleDetails, (details) => details.item)
+  vehicleDetails: VehicleDetails;
+
+  @OneToOne(() => ElectronicsDetails, (details) => details.item)
+  electronicsDetails: ElectronicsDetails;
+
+  @OneToOne(() => HomeDetails, (details) => details.item)
+  homeDetails: HomeDetails;
+
+  @OneToOne(() => FashionDetails, (details) => details.item)
+  fashionDetails: FashionDetails;
+
+  @OneToOne(() => SportsDetails, (details) => details.item)
+  sportsDetails: SportsDetails;
 }
