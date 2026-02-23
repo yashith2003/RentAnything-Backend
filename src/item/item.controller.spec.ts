@@ -46,8 +46,9 @@ describe('ItemController', () => {
 
   describe('findAll', () => {
     it('should call service.findAll', async () => {
-      await controller.findAll('1');
-      expect(service.findAll).toHaveBeenCalledWith(1);
+      const query = { cat: '1' } as any;
+      await controller.findAll(query);
+      expect(service.findAll).toHaveBeenCalledWith(1, {});
     });
   });
 

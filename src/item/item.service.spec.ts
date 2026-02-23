@@ -30,6 +30,13 @@ describe('ItemService', () => {
     find: jest.fn().mockResolvedValue([mockItem]),
     findOne: jest.fn().mockResolvedValue(mockItem),
     remove: jest.fn().mockResolvedValue(mockItem),
+    createQueryBuilder: jest.fn().mockReturnValue({
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([mockItem]),
+    }),
   };
 
   const mockCacheManager = {
@@ -62,7 +69,10 @@ describe('ItemService', () => {
         },
         {
           provide: getRepositoryToken(Category),
-          useValue: mockRepository,
+          useValue: {
+            ...mockRepository,
+            query: jest.fn().mockResolvedValue([{ id: 1 }]),
+          },
         },
         {
           provide: getRepositoryToken(Address),

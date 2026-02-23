@@ -30,6 +30,8 @@ describe('ChatService', () => {
             create: jest.fn().mockReturnValue(mockThread),
             save: jest.fn().mockResolvedValue(mockThread),
             find: jest.fn().mockResolvedValue([mockThread]),
+            findOne: jest.fn().mockResolvedValue(mockThread),
+            update: jest.fn().mockResolvedValue({}),
           },
         },
         {
@@ -38,6 +40,7 @@ describe('ChatService', () => {
             create: jest.fn().mockReturnValue(mockMessage),
             save: jest.fn().mockResolvedValue(mockMessage),
             find: jest.fn().mockResolvedValue([mockMessage]),
+            findOne: jest.fn().mockResolvedValue(mockMessage),
           },
         },
         {
@@ -59,6 +62,7 @@ describe('ChatService', () => {
 
   describe('createThread', () => {
     it('should create a chat thread', async () => {
+      threadRepository.findOne.mockResolvedValue(null);
       const result = await service.createThread(1, 1, 2);
       expect(result).toEqual(mockThread);
       expect(threadRepository.create).toHaveBeenCalled();
