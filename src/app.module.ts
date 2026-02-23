@@ -22,7 +22,7 @@ import { AddressModule } from './address/address.module';
 import { RentalModule } from './rental/rental.module';
 import { IncidentModule } from './incident/incident.module';
 import { ChatModule } from './chat/chat.module';
-
+import { KycModule } from './kyc/kyc.module';
 
 @Module({
   imports: [
@@ -31,7 +31,7 @@ import { ChatModule } from './chat/chat.module';
       load: [databaseConfig, jwtConfig, redisConfig],
     }),
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'uploads'),
+      rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
     }),
     CacheModule.registerAsync({
@@ -80,6 +80,7 @@ import { ChatModule } from './chat/chat.module';
     ChatModule,
     RentalModule,
     IncidentModule,
+    KycModule,
   ],
 
   controllers: [AppController],

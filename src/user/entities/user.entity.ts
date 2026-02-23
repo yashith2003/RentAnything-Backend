@@ -1,9 +1,10 @@
-//src/user/entities/user.entity.ts
+//RentAnything-Backend/src/user/entities/user.entity.ts
 
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { IndividualUser } from './individual-user.entity';
 import { Company } from './company.entity';
 import { Address } from '../../address/entities/address.entity';
+import { KycSubmission } from '../../kyc/entities/kyc-submission.entity';
 
 export enum UserRole {
   INDIVIDUAL = 'individual',

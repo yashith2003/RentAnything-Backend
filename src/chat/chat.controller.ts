@@ -17,11 +17,11 @@ export class ChatController {
   @ApiOperation({ summary: 'Create a new chat thread for an item' })
   async createThread(
     @Body('itemId') itemId: number,
-    @Body('sellerId') sellerId: number,
+    @Body('otherUserId') otherUserId: number,
     @Req() req: any,
   ) {
-    const buyerId = req.user.id;
-    return this.chatService.createThread(itemId, buyerId, sellerId);
+    const userId = req.user.id;
+    return this.chatService.createThread(itemId, userId, otherUserId);
   }
 
   @Get('threads')
@@ -34,5 +34,11 @@ export class ChatController {
   @ApiOperation({ summary: 'Get all messages in a specific thread' })
   async getThreadMessages(@Param('id') threadId: number) {
     return this.chatService.getThreadMessages(threadId);
+  }
+
+  @Get('thread/:id')
+  @ApiOperation({ summary: 'Get details of a specific chat thread' })
+  async getThreadDetails(@Param('id') threadId: number) {
+    return this.chatService.getThreadDetails(threadId);
   }
 }

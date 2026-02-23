@@ -11,6 +11,9 @@ import { HomeDetails } from './entities/home-details.entity';
 import { ItemService } from './item.service';
 import { ItemController } from './item.controller';
 import { CategoryDetailsService } from './services/category-details.service';
+import { SavedItem } from './entities/saved-item.entity';
+import { SavedItemService } from './saved-item.service';
+import { SavedItemController } from './saved-item.controller';
 
 import { User } from '../user/entities/user.entity';
 import { Category } from '../category/entities/category.entity';
@@ -32,11 +35,12 @@ import { Availability } from '../availability/entities/availability.entity';
       SportsDetails,
       HomeDetails,
       Availability,
+      SavedItem,
     ]),
   ],
-  providers: [ItemService, CategoryDetailsService],
-  controllers: [ItemController],
-  exports: [ItemService, CategoryDetailsService, TypeOrmModule],
+  providers: [ItemService, CategoryDetailsService, SavedItemService],
+  controllers: [SavedItemController, ItemController],
+  exports: [ItemService, CategoryDetailsService, SavedItemService, TypeOrmModule],
 })
 export class ItemModule {}
 

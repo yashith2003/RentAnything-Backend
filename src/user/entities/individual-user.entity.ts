@@ -1,4 +1,4 @@
-//src/user/entities/individual-user.entity.ts
+//RentAnything-Backend/src/user/entities/individual-user.entity.ts
 
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, UpdateDateColumn } from 'typeorm';
 import { User } from './user.entity';
@@ -17,6 +17,15 @@ export class IndividualUser {
 
   @Column({ name: 'full_name' })
   fullName: string;
+
+  @Column({ name: 'address', nullable: true })
+  address: string;
+
+  @Column({ name: 'description', type: 'text', nullable: true })
+  description: string;
+
+  @Column({ name: 'location', nullable: true })
+  location: string;
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;

@@ -26,11 +26,17 @@ export class CategoryService {
     const cached = await this.cacheManager.get<any[]>(cacheKey);
     if (cached) return cached;
 
-    const filters = await this.filterConfigRepository.find({
-      where: { categoryId },
-    });
+    const filters = await this.categoryRepository.query(`
+      WITH RECURSIVE cat_tree AS (
+        SELECT id, parent_category_id FROM categories WHERE id = $1
+        UNION ALL
+        SELECT c.id, c.parent_category_id FROM categories c
+        INNER JOIN cat_tree ct ON c.id = ct.parent_category_id
+      )
+      SELECT id, label, key, type, options, category_id as "categoryId" FROM filter_configs WHERE category_id IN (SELECT id FROM cat_tree)
+    `, [categoryId]);
     
-    await this.cacheManager.set(cacheKey, filters, 600 * 1000); // 10 mins
+    await this.cacheManager.set(cacheKey, filters, 600 * 1000); 
     return filters;
   }
 

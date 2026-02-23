@@ -26,6 +26,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ? exception.getResponse()
         : 'Internal server error';
 
+    // Log the actual error to the console so we aren't flying blind!
+    if (!(exception instanceof HttpException)) {
+      console.error('[GlobalExceptionFilter] Unhandled Error:', exception);
+    }
+
     response.status(status).json({
       statusCode: status,
       timestamp: new Date().toISOString(),

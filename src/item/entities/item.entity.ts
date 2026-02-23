@@ -37,7 +37,7 @@ export class Item {
   address: Address;
 
   @Column()
-  title: string;
+  title: string = '';
 
   @Column({ type: 'text' })
   description: string;

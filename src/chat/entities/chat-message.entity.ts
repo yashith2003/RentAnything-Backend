@@ -9,9 +9,15 @@ export class ChatMessage {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ name: 'thread_id' })
+  threadId: number;
+
   @ManyToOne(() => ChatThread, (thread) => thread.messages)
   @JoinColumn({ name: 'thread_id' })
   thread: ChatThread;
+
+  @Column({ name: 'sender_id' })
+  senderId: number;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'sender_id' })

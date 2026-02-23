@@ -1,17 +1,27 @@
-//src/user/dto/update-user.dto.ts
+//RentAnything-Backend/src/user/dto/update-user.dto.ts
 
-import { PartialType, ApiProperty } from '@nestjs/swagger';
-import { CreateUserDto } from './create-user.dto';
-import { IsString, IsOptional, IsUrl } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsOptional, IsEmail, IsBoolean, IsEnum } from 'class-validator';
+import { UserRole } from '../entities/user.entity';
 
-export class UpdateUserDto extends PartialType(CreateUserDto) {
+export class UpdateUserDto {
+  @ApiProperty({ example: 'user@example.com', required: false })
+  @IsEmail()
+  @IsOptional()
+  email?: string;
+
+  @ApiProperty({ example: '+919876543210', required: false })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
   @ApiProperty({ example: 'John Doe', required: false })
   @IsString()
   @IsOptional()
   fullName?: string;
 
-  @ApiProperty({ example: 'https://example.com/avatar.jpg', required: false })
-  @IsUrl()
+  @ApiProperty({ example: 'uploads/avatar.jpg', required: false })
+  @IsString()
   @IsOptional()
   avatarUrl?: string;
 
@@ -20,8 +30,23 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsOptional()
   companyName?: string;
 
-  @ApiProperty({ example: 'https://example.com/logo.jpg', required: false })
-  @IsUrl()
+  @ApiProperty({ example: 'uploads/logo.jpg', required: false })
+  @IsString()
   @IsOptional()
   logoUrl?: string;
+
+  @ApiProperty({ example: '123 Main St', required: false })
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @ApiProperty({ example: 'A reliable user/company', required: false })
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @ApiProperty({ example: 'New York', required: false })
+  @IsString()
+  @IsOptional()
+  location?: string;
 }
