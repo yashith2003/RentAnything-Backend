@@ -1,4 +1,4 @@
-//src/item/item.service.ts
+//RentAnything-Backend/src/item/item.service.ts
 
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,6 +14,8 @@ import { Availability } from '../availability/entities/availability.entity';
 import { CategoryDetailsService } from './services/category-details.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import * as cacheManager from 'cache-manager';
+import { ItemInteraction, InteractionType } from './entities/item-interaction.entity';
+import { Review } from '../review/entities/review.entity';
 
 @Injectable()
 export class ItemService {
@@ -24,6 +26,8 @@ export class ItemService {
     @InjectRepository(Address) private addressRepository: Repository<Address>,
     @InjectRepository(ItemPricing) private pricingRepository: Repository<ItemPricing>,
     @InjectRepository(Availability) private availabilityRepository: Repository<Availability>,
+    @InjectRepository(ItemInteraction) private interactionRepository: Repository<ItemInteraction>,
+    @InjectRepository(Review) private reviewRepository: Repository<Review>,
     private categoryDetailsService: CategoryDetailsService,
     @Inject(CACHE_MANAGER) private cacheManager: cacheManager.Cache,
   ) {}
@@ -86,6 +90,8 @@ export class ItemService {
         console.warn(`[ItemService] Category with ID ${dto.categoryId} not found. Skipping category details.`);
       }
 
+      await this.clearItemsCache();
+
       return savedItem;
     } catch (error) {
       console.error('[ItemService] Failed to create item:', error);
@@ -93,8 +99,9 @@ export class ItemService {
     }
   }
 
-  async findAll(categoryId?: number, filters?: any): Promise<Item[]> {
-    const cacheKey = categoryId ? `items_category_${categoryId}_${JSON.stringify(filters)}` : 'all_items';
+  async findAll(categoryId?: number, filters: any = {}): Promise<Item[]> {
+    const { page, limit, excludeOwnerId, ownerId, excludeId, ...otherFilters } = filters;
+    const cacheKey = `items:list:${categoryId || 'all'}:${JSON.stringify(filters)}`;
     const cachedItems = await this.cacheManager.get<Item[]>(cacheKey);
     if (cachedItems) {
       return cachedItems;
@@ -107,10 +114,19 @@ export class ItemService {
       .leftJoinAndSelect('item.category', 'category')
       .leftJoinAndSelect('category.parentCategory', 'parentCategory')
       .leftJoinAndSelect('item.address', 'address')
-      .leftJoinAndSelect('item.pricings', 'pricing')
-      .leftJoin('item.reviews', 'review')
-      .addSelect('COUNT(review.id)', 'item_reviewCount')
-      .addSelect('AVG(review.rating)', 'item_averageRating');
+      .leftJoinAndSelect('item.pricings', 'pricing');
+
+    if (excludeOwnerId) {
+      queryBuilder.andWhere('owner.id != :excludeOwnerId', { excludeOwnerId });
+    }
+
+    if (ownerId) {
+      queryBuilder.andWhere('owner.id = :ownerId', { ownerId });
+    }
+
+    if (excludeId) {
+      queryBuilder.andWhere('item.id != :excludeId', { excludeId });
+    }
 
     if (categoryId) {
       // Get all subcategories recursively
@@ -145,8 +161,8 @@ export class ItemService {
         if (detailTable) {
           queryBuilder.leftJoinAndSelect(`item.${detailTable.replace(/_([a-z])/g, (g) => g[1].toUpperCase())}`, 'details');
           
-          // Filter out global filters (access, condition, distance) - only apply category-specific filters
-          const globalFilterKeys = ['access', 'condition', 'distance'];
+          // Filter out global filters (access, condition, distance, ownerId, excludeId, excludeOwnerId) - only apply category-specific filters
+          const globalFilterKeys = ['access', 'condition', 'distance', 'ownerId', 'excludeId', 'excludeOwnerId', 'page', 'limit', 'cat', 'priceMin', 'priceMax', 'minRating', 'location'];
           Object.keys(filters).forEach((key) => {
             if (!globalFilterKeys.includes(key)) {
               const val = filters[key];
@@ -164,28 +180,54 @@ export class ItemService {
       }
     }
 
-    queryBuilder.groupBy('item.id')
-      .addGroupBy('owner.id')
-      .addGroupBy('individualUser.id')
-      .addGroupBy('company.id')
-      .addGroupBy('category.id')
-      .addGroupBy('parentCategory.id')
-      .addGroupBy('address.id')
-      .addGroupBy('pricing.id');
+    // Sorting
+    queryBuilder.orderBy('item.createdAt', 'DESC');
+
+    // Pagination
+    const take = limit ? +limit : 20;
+    const skip = page ? (page - 1) * take : 0;
+    queryBuilder.take(take).skip(skip);
 
     const items = await queryBuilder.getRawAndEntities();
 
-    const result = items.entities.map((entity, index) => {
-      const raw = items.raw[index];
+    // Fetch review stats separately for these items
+    const itemIds = items.entities.map(e => e.id);
+    let reviewStats = [];
+    if (itemIds.length > 0) {
+      reviewStats = await this.reviewRepository
+        .createQueryBuilder('r')
+        .select('r.item_id', 'itemId')
+        .addSelect('COUNT(r.id)', 'count')
+        .addSelect('AVG(r.rating)', 'avgRating')
+        .where('r.item_id IN (:...itemIds)', { itemIds })
+        .groupBy('r.item_id')
+        .getRawMany();
+    }
+
+    const reviewStatsMap = new Map();
+    reviewStats.forEach((rs: any) => {
+      reviewStatsMap.set(rs.itemId, rs);
+    });
+
+    const result = items.entities.map((entity) => {
+      const stats = reviewStatsMap.get(entity.id);
       return {
         ...entity,
-        reviewCount: parseInt(raw.item_reviewCount, 10) || 0,
-        averageRating: parseFloat(raw.item_averageRating) || 0,
+        reviewCount: parseInt(stats?.count || '0', 10),
+        averageRating: parseFloat(stats?.avgRating || '0'),
       };
     });
 
     await this.cacheManager.set(cacheKey, result, 300); // 5 minutes cache
     return result as any;
+  }
+
+  private async clearItemsCache() {
+    const keys = await (this.cacheManager as any).store.keys('items:list:*');
+    for (const key of keys) {
+      await this.cacheManager.del(key);
+    }
+    await this.cacheManager.del('all_items'); // Legacy
   }
 
   async findMyItems(ownerId: number) {
@@ -290,11 +332,8 @@ export class ItemService {
     const updatedItem = await this.itemRepository.save(item);
     
     // Invalidate caches
-    await this.cacheManager.del('all_items');
+    await this.clearItemsCache();
     await this.cacheManager.del(`item:${id}`);
-    if(item.category && item.category.id) {
-       await this.cacheManager.del(`items_category_${item.category.id}`);
-    }
 
     return updatedItem;
   }
@@ -309,11 +348,8 @@ export class ItemService {
     const result = await this.itemRepository.remove(item as any);
     
      // Invalidate caches
-    await this.cacheManager.del('all_items');
+    await this.clearItemsCache();
     await this.cacheManager.del(`item:${id}`);
-     if((item as any).category && (item as any).category.id) {
-       await this.cacheManager.del(`items_category_${(item as any).category.id}`);
-    }
 
     return result;
   }
@@ -397,5 +433,146 @@ export class ItemService {
       averageRating: parseFloat(item.averageRating) || 0,
       reviewCount: parseInt(item.reviewCount, 10) || 0,
     }));
+  }
+
+  async recordInteraction(itemId: number, type: string, userId?: number, sessionId?: string) {
+    const dayKey = new Date().toISOString().split('T')[0];
+    
+    // Anti-spam: Upsert interaction to avoid multiple views from same user/session on the same day
+    try {
+      await this.interactionRepository.createQueryBuilder()
+        .insert()
+        .into(ItemInteraction)
+        .values({
+          item: { id: itemId } as any,
+          type: type as InteractionType,
+          userId,
+          sessionId,
+          dayKey,
+        })
+        .orIgnore() // TypeORM/Postgres way to handle unique constraint conflicts
+        .execute();
+    } catch (e) {
+      // Ignore duplicates if orIgnore() isn't enough
+      console.log(`[Interaction] Duplicate interaction ignored: ${itemId}, ${type}, ${dayKey}`);
+    }
+  }
+
+  async findTrending(categoryId?: number, filters: any = {}): Promise<Item[]> {
+    const { page = 1, limit = 20, search, excludeOwnerId, excludeId } = filters;
+    const skip = (page - 1) * limit;
+
+    const cacheKey = `items:trending:${categoryId || 'all'}:${JSON.stringify(filters)}`;
+    const cachedItems = await this.cacheManager.get<Item[]>(cacheKey);
+    if (cachedItems) return cachedItems;
+
+    // Advanced SQL for decay and momentum
+    const scoreSubquery = `
+      SELECT 
+        item_id,
+        SUM(
+          (CASE 
+            WHEN type = 'VIEW' THEN 1.0 
+            WHEN type = 'CHAT' THEN 1.5 
+            WHEN type = 'CALL' THEN 2.0 
+            ELSE 0 END) * 
+          EXP(-(EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400.0) / 7.0)
+        ) as decayed14,
+        SUM(
+          CASE 
+            WHEN created_at >= NOW() - INTERVAL '3 days' 
+            THEN (CASE WHEN type = 'VIEW' THEN 1.0 WHEN type = 'CHAT' THEN 1.5 WHEN type = 'CALL' THEN 2.0 ELSE 0 END * EXP(-(EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400.0) / 3.0)) 
+            ELSE 0 
+          END
+        ) as recent3,
+        SUM(
+          CASE 
+            WHEN created_at >= NOW() - INTERVAL '6 days' AND created_at < NOW() - INTERVAL '3 days' 
+            THEN (CASE WHEN type = 'VIEW' THEN 1.0 WHEN type = 'CHAT' THEN 1.5 WHEN type = 'CALL' THEN 2.0 ELSE 0 END * EXP(-(EXTRACT(EPOCH FROM (NOW() - (created_at + INTERVAL '3 days'))) / 86400.0) / 3.0)) 
+            ELSE 0 
+          END
+        ) as prev3
+      FROM item_interactions
+      WHERE created_at >= NOW() - INTERVAL '14 days'
+      GROUP BY item_id
+    `;
+
+    const queryBuilder = this.itemRepository.createQueryBuilder('item')
+      .leftJoinAndSelect('item.owner', 'owner')
+      .leftJoinAndSelect('owner.individualUser', 'individualUser')
+      .leftJoinAndSelect('owner.company', 'company')
+      .leftJoinAndSelect('item.category', 'category')
+      .leftJoinAndSelect('item.address', 'address')
+      .leftJoinAndSelect('item.pricings', 'pricing')
+      // Join the score subquery
+      .leftJoin(`(${scoreSubquery})`, 'scores', 'scores.item_id = item.id')
+      .addSelect('COALESCE((scores.decayed14 + 0.3 * (scores.recent3 - scores.prev3)), 0)', 'final_score');
+
+    if (excludeOwnerId) {
+      queryBuilder.andWhere('owner.id != :excludeOwnerId', { excludeOwnerId });
+    }
+
+    if (excludeId) {
+      queryBuilder.andWhere('item.id != :excludeId', { excludeId });
+    }
+
+    if (categoryId) {
+      queryBuilder.andWhere('item.category_id = :categoryId', { categoryId });
+    }
+
+    if (search) {
+      queryBuilder.andWhere('(item.title ILIKE :search OR item.description ILIKE :search)', { search: `%${search}%` });
+    }
+
+    queryBuilder
+      .orderBy('final_score', 'DESC')
+      .addOrderBy('item.created_at', 'DESC')
+      .limit(limit)
+      .offset(skip);
+
+    const items = await queryBuilder.getRawAndEntities();
+    
+    // Extract unique entities and their raw scores
+    const entitiesMap = new Map();
+    items.entities.forEach(entity => {
+      entitiesMap.set(entity.id, entity);
+    });
+
+    const scoresMap = new Map();
+    items.raw.forEach(r => {
+      scoresMap.set(r.item_id, r.final_score);
+    });
+
+    // Fetch review stats separately for these items to avoid GROUP BY issues
+    const itemIds: number[] = Array.from(entitiesMap.keys());
+    let reviewStats = [];
+    if (itemIds.length > 0) {
+      reviewStats = await this.reviewRepository
+        .createQueryBuilder('r')
+        .select('r.item_id', 'itemId')
+        .addSelect('COUNT(r.id)', 'count')
+        .addSelect('AVG(r.rating)', 'avgRating')
+        .where('r.item_id IN (:...itemIds)', { itemIds })
+        .groupBy('r.item_id')
+        .getRawMany();
+    }
+
+    const reviewStatsMap = new Map();
+    reviewStats.forEach((rs: any) => {
+      reviewStatsMap.set(rs.itemId, rs);
+    });
+
+    const result = Array.from(entitiesMap.values()).map(entity => {
+      const stats = reviewStatsMap.get(entity.id);
+      return {
+        ...entity,
+        reviewCount: parseInt(stats?.count || '0', 10),
+        averageRating: parseFloat(stats?.avgRating || '0'),
+        trendingScore: parseFloat(scoresMap.get(entity.id) || '0'),
+      };
+    });
+
+    await this.cacheManager.set(cacheKey, result, 120);
+    return result as any;
   }
 }

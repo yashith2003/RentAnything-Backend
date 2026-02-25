@@ -1,3 +1,5 @@
+//RentAnything-Backend/src/review/review.controller.ts
+
 import { Controller, Post, Get, Body, Param, UseGuards, Request, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
 import { ReviewService } from './review.service';
 import { CreateReviewSchema } from './dto/create-review.dto';
@@ -34,5 +36,14 @@ export class ReviewController {
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
   ) {
     return this.reviewService.getUserReviews(userId, page, limit);
+  }
+
+  @Get('item/:itemId/my-review')
+  @UseGuards(JwtAuthGuard)
+  getMyReviewForItem(
+    @Param('itemId', ParseIntPipe) itemId: number,
+    @Request() req,
+  ) {
+    return this.reviewService.getMyReviewForItem(req.user.id, itemId);
   }
 }

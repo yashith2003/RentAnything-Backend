@@ -1,3 +1,5 @@
+//RentAnything-Backend/src/review/entities/review.entity.ts
+
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, Unique } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { Item } from '../../item/entities/item.entity';
@@ -12,7 +14,7 @@ export class Review {
   rating: number;
 
   @Column({ type: 'text', nullable: true })
-  feedback: string;
+  feedback: string | null;
 
   @Column({ name: 'reviewer_id' })
   reviewerId: number;

@@ -162,8 +162,9 @@ export class AuthService {
   }
 
   async verifyOtp(dto: VerifyOtpDto) {
-    console.log(`Verifying OTP for phone: ${dto.phone}, OTP: ${dto.otp}`);
+    console.log(`[AuthService.verifyOtp] START - phone: "${dto.phone}", otp: "${dto.otp}"`);
     if (dto.otp !== '111111') {
+      console.warn(`[AuthService.verifyOtp] INVALID OTP - expected 111111, got ${dto.otp}`);
       throw new UnauthorizedException('Invalid OTP');
     }
 
@@ -180,6 +181,7 @@ export class AuthService {
       }
     }
 
+    console.log(`[AuthService.verifyOtp] Querying for user with phone: "${dto.phone}" (length: ${dto.phone?.length})`);
     const user = await this.userRepository.findOne({ 
       where: { phone: dto.phone },
       relations: ['individualUser', 'company']
@@ -189,6 +191,9 @@ export class AuthService {
       console.error(`User not found for phone during OTP verification: ${dto.phone}`);
       throw new NotFoundException('User not found. Please register first.');
     }
+
+    console.log(`[AuthService] Found user: id=${user.id}, phone=${user.phone}, role=${user.role}`);
+    console.log(`[AuthService] User relations - individualUser: ${!!user.individualUser}, company: ${!!user.company}`);
 
     const tokens = await this.generateTokens(user);
 

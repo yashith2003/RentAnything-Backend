@@ -131,6 +131,27 @@ export class ItemController {
     );
   }
 
+  @Get('trending')
+  @ApiOperation({ summary: 'Get trending items with advanced ranking' })
+  @UsePipes(new ZodValidationPipe(FilterItemsSchema))
+  findTrending(@Query() query: FilterItemsDto) {
+    const { cat, ...filters } = query;
+    return this.itemService.findTrending(cat ? +cat : undefined, filters);
+  }
+
+  @Post(':id/interact')
+  @ApiOperation({ summary: 'Record a user interaction with an item (VIEW, CALL, CHAT)' })
+  async recordInteraction(
+    @Param('id') id: string,
+    @Body('type') type: string,
+    @Request() req: any,
+  ) {
+    const userId = req.user?.id;
+    const sessionId = req.headers['x-session-id'] || 'anonymous'; // Fallback for guest sessions
+    await this.itemService.recordInteraction(+id, type, userId, sessionId as string);
+    return { success: true };
+  }
+
   @Get('my-items')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()

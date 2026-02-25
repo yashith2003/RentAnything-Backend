@@ -20,9 +20,10 @@ erDiagram
     ADDRESS {
         int id PK
         int user_id FK
-        varchar address
-        decimal location_lat
-        decimal location_lng
+        text address
+        decimal lat
+        decimal lng
+        varchar place_id
         timestamp updated_at
     }
 
@@ -31,6 +32,9 @@ erDiagram
         int user_id FK
         varchar avatar_url
         varchar full_name
+        varchar address
+        text description
+        varchar location
         timestamp updated_at
     }
 
@@ -40,24 +44,31 @@ erDiagram
         varchar logo_url
         varchar company_name
         varchar company_registration_number
+        varchar address
+        text description
+        varchar location
         timestamp updated_at
     }
 
-    KYC_CASE {
+    KYC_SUBMISSION {
         int id PK
         int user_id FK
-        varchar status
-        timestamp submitted_at
-        timestamp reviewed_at
+        varchar overall_status
+        timestamp created_at
         timestamp updated_at
     }
 
     KYC_DOCUMENT {
         int id PK
-        int kyc_case_id FK
-        varchar document_type
+        int submission_id FK
+        varchar type
         varchar file_url
-        varchar verification_status
+        varchar status
+        json rejection_reasons
+        timestamp reviewed_at
+        int reviewed_by_admin_id
+        timestamp created_at
+        timestamp updated_at
     }
 
     CATEGORY {
@@ -66,64 +77,93 @@ erDiagram
         varchar name
     }
 
-ITEM {
-    int id PK
-    int owner_id FK
-    int category_id FK
-    int address_id FK
-    varchar title
-    text description
-    varchar condition
-    varchar status
-    boolean delivery_available
-    boolean pickup_available
-    timestamp created_at
-    timestamp updated_at
-}
+    FILTER_CONFIG {
+        int id PK
+        int category_id FK
+        varchar label
+        varchar key
+        varchar type
+        json options
+    }
 
+    ITEM {
+        int id PK
+        int owner_id FK
+        int category_id FK
+        int address_id FK
+        varchar title
+        text description
+        varchar condition
+        varchar status
+        boolean delivery_available
+        boolean pickup_available
+        varchar phone
+        text rental_terms
+        text instructions
+        decimal security_deposit
+        varchar image_url
+        timestamp created_at
+        timestamp updated_at
+    }
 
     VEHICLE_DETAILS {
         int id PK
         int item_id FK
-        int category_id FK
         varchar vehicle_number
         varchar vehicle_type
         int seating_capacity
+        varchar fuel_type
+        varchar color
+        varchar registration_document
+        varchar insurance_document
+        varchar revenue_license
+        decimal delivery_fee
+        boolean driver_available
+        varchar driver_name
+        varchar driver_gender
+        varchar driver_license
+        decimal driver_fee
         timestamp updated_at
     }
 
     ELECTRONICS_DETAILS {
         int id PK
         int item_id FK
-        int category_id FK
         varchar brand
         varchar model
+        varchar warranty
+        text specifications
         timestamp updated_at
     }
 
     HOME_DETAILS {
         int id PK
         int item_id FK
-        int category_id FK
-        varchar material
-        varchar size
+        varchar property_type
+        int number_of_rooms
+        int number_of_bathrooms
+        varchar area
+        boolean is_furnished
+        json amenities
         timestamp updated_at
     }
 
     SPORTS_DETAILS {
         int id PK
         int item_id FK
-        int category_id FK
         varchar sport_type
+        varchar equipment_type
+        varchar suitable_for
         timestamp updated_at
     }
 
     FASHION_DETAILS {
         int id PK
         int item_id FK
-        int category_id FK
         varchar size
         varchar gender
+        varchar brand
+        varchar material
         timestamp updated_at
     }
 
@@ -134,6 +174,15 @@ ITEM {
         decimal price
         int min_duration
         timestamp updated_at
+    }
+
+    AVAILABILITY {
+        int id PK
+        int item_id FK
+        date available_date
+        time start_time
+        time end_time
+        boolean is_available
     }
 
     RENTAL_REQUEST {
@@ -154,37 +203,48 @@ ITEM {
         timestamp end_at
         decimal total_amount
         varchar status
+        timestamp created_at
         timestamp updated_at
     }
 
-    RENTAL_EXTENSION {
+    INCIDENT_REPORT {
         int id PK
         int rental_id FK
-        timestamp extended_from
-        timestamp extended_to
-        decimal additional_fee
+        int reported_by FK
+        text description
         varchar status
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    INCIDENT_MEDIA {
+        int id PK
+        int incident_id FK
+        varchar media_type
+        varchar media_url
     }
 
     PAYMENT {
         int id PK
         int rental_id FK
-        int rentee_id FK
-        int user_id FK
         decimal amount
-        varchar payment_method
         varchar status
-        timestamp paid_at
+    }
+
+    RENTAL_EXTENSION {
+        int id PK
+        int rental_id FK
+        timestamp extended_to
+        varchar status
     }
 
     REVIEW {
         int id PK
         int reviewer_id FK
-        int reviewee_id FK
         int item_id FK
-        int rental_id FK
+        int owner_id FK
         int rating
-        text comment
+        text feedback
         timestamp created_at
         timestamp updated_at
     }
@@ -192,101 +252,61 @@ ITEM {
     CHAT_THREAD {
         int id PK
         int item_id FK
-        int renter_id FK
-        int owner_id FK
-
+        int user_one_id FK
+        int user_two_id FK
+        int last_message_id FK
+        timestamp created_at
+        timestamp updated_at
     }
+
     CHAT_MESSAGE {
-    int id PK
-    int chat_thread_id FK
-    int sender_id FK
-    text message
-    timestamp sent_at
-}
-
-
-    INCIDENT_REPORT {
         int id PK
-        int rental_id FK
-        int reported_by FK
-        varchar status
+        int thread_id FK
+        int sender_id FK
+        text content
+        array attachments
+        array attachment_names
+        boolean is_read
+        timestamp created_at
     }
-    INCIDENT_MEDIA {
-    int id PK
-    int incident_id FK
-    varchar media_type
-    varchar media_url
-}
 
+    ITEM_INTERACTION {
+        int id PK
+        int item_id FK
+        varchar type
+        int userId
+        varchar sessionId
+        varchar dayKey
+        timestamp created_at
+    }
+
+    SAVED_ITEM {
+        int id PK
+        int user_id FK
+        int item_id FK
+        timestamp created_at
+    }
 
     NOTIFICATION {
         int id PK
         int user_id FK
-        int rental_id FK
-        int chat_thread_id FK
-        int review_id FK
-        int kyc_case_id FK
-        int incident_id FK
-        varchar type
-        boolean is_read
-        timestamp created_at
+        varchar status
     }
-    AVAILABILITY {
-    int id PK
-    int item_id FK
-    date available_date
-    time start_time
-    time end_time
-    boolean is_available
-}
-SAVED_ITEM {
-    int id PK
-    int user_id FK
-    int item_id FK
-    timestamp created_at
-}
-USER_LEVEL {
-    int id PK
-    int user_id FK
-    varchar level_name
-    timestamp achieved_at
-}
-CONDITION_REPORT {
-    int id PK
-    int rental_id FK
-    int submitted_by FK
-    text description
-    timestamp created_at
-}
-CONDITION_MEDIA {
-    int id PK
-    int condition_report_id FK
-    varchar media_type
-    varchar media_url
-}
 
-
+    %% Relationships
     USER ||--o{ ADDRESS : has
     USER ||--|| INDIVIDUAL_USER : is
     USER ||--|| COMPANY : is
-    USER ||--o{ SAVED_ITEM : saves
-    USER ||--o{ USER_LEVEL : achieves
-
-    ITEM ||--o{ SAVED_ITEM : saved_as
-
-
-    USER ||--o{ KYC_CASE : submits
-    KYC_CASE ||--o{ KYC_DOCUMENT : includes
+    USER ||--|| KYC_SUBMISSION : submits
+    KYC_SUBMISSION ||--o{ KYC_DOCUMENT : includes
 
     CATEGORY ||--o{ CATEGORY : parent_of
+    CATEGORY ||--o{ FILTER_CONFIG : configured_with
     CATEGORY ||--o{ ITEM : categorizes
-    CATEGORY ||--o{ VEHICLE_DETAILS : classifies
-    CATEGORY ||--o{ ELECTRONICS_DETAILS : classifies
-    CATEGORY ||--o{ HOME_DETAILS : classifies
-    CATEGORY ||--o{ SPORTS_DETAILS : classifies
-    CATEGORY ||--o{ FASHION_DETAILS : classifies
 
     USER ||--o{ ITEM : owns
+    ADDRESS ||--o{ ITEM : located_at
+
     ITEM ||--|| VEHICLE_DETAILS : has
     ITEM ||--|| ELECTRONICS_DETAILS : has
     ITEM ||--|| HOME_DETAILS : has
@@ -294,45 +314,33 @@ CONDITION_MEDIA {
     ITEM ||--|| FASHION_DETAILS : has
 
     ITEM ||--o{ ITEM_PRICING : priced_by
-    ITEM_PRICING ||--o{ RENTAL_REQUEST : used_in
-    ITEM_PRICING ||--o{ RENTAL_EXTENSION : used_in
+    ITEM ||--o{ AVAILABILITY : has
+    ITEM ||--o{ SAVED_ITEM : saved_as
+    USER ||--o{ SAVED_ITEM : saves
+
+    ITEM ||--o{ ITEM_INTERACTION : interacted_with
+    USER ||--o{ ITEM_INTERACTION : interacts
 
     USER ||--o{ RENTAL_REQUEST : makes
     ITEM ||--o{ RENTAL_REQUEST : requested_for
     RENTAL_REQUEST ||--|| RENTAL : becomes
-    RENTAL ||--o{ RENTAL_EXTENSION : extended_by
-    RENTAL ||--o{ CONDITION_REPORT : checked_by
-    USER ||--o{ CONDITION_REPORT : submits
-
-
-    USER ||--o{ PAYMENT : makes
-    RENTAL ||--o{ PAYMENT : paid_for
-
-    USER ||--o{ REVIEW : writes
-    ITEM ||--o{ REVIEW : reviewed_in
-    RENTAL ||--o{ REVIEW : linked_to
-
-    ADDRESS ||--o{ ITEM : located_at
-    RENTAL_EXTENSION ||--o{ PAYMENT : charged_for
-
-    ITEM ||--o{ AVAILABILITY : has
-    INCIDENT_REPORT ||--o{ INCIDENT_MEDIA : documented_by
-
-
-    ITEM ||--o{ CHAT_THREAD : discussed_in
-    USER ||--o{ CHAT_THREAD : participates
 
     RENTAL ||--o{ INCIDENT_REPORT : has
     USER ||--o{ INCIDENT_REPORT : reports
+    INCIDENT_REPORT ||--o{ INCIDENT_MEDIA : documented_by
+
+    RENTAL ||--o{ PAYMENT : paid_for
+    RENTAL ||--o{ RENTAL_EXTENSION : extended_by
+
+    ITEM ||--o{ REVIEW : reviewed_in
+    USER ||--o{ REVIEW : reviews
+    USER ||--o{ REVIEW : reviewee
+
+    ITEM ||--o{ CHAT_THREAD : discussed_in
+    USER ||--o{ CHAT_THREAD : user_one
+    USER ||--o{ CHAT_THREAD : user_two
+    CHAT_THREAD ||--o{ CHAT_MESSAGE : contains
+    USER ||--o{ CHAT_MESSAGE : sends
+    CHAT_THREAD ||--|| CHAT_MESSAGE : last_message
 
     USER ||--o{ NOTIFICATION : receives
-    RENTAL ||--o{ NOTIFICATION : triggers
-    CHAT_THREAD ||--o{ NOTIFICATION : triggers
-    CHAT_THREAD ||--o{ CHAT_MESSAGE : contains
-    CONDITION_REPORT ||--o{ CONDITION_MEDIA : documented_by
-
-    USER ||--o{ CHAT_MESSAGE : sends
-
-    REVIEW ||--o{ NOTIFICATION : triggers
-    KYC_CASE ||--o{ NOTIFICATION : triggers
-    INCIDENT_REPORT ||--o{ NOTIFICATION : triggers

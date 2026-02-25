@@ -1,0 +1,50 @@
+{
+  "users": [
+    {
+      "id": 55,
+      "email": "yash@gmail.com",
+      "phone": "0701060326",
+      "role": "individual"
+    },
+    {
+      "id": 57,
+      "email": "yashh@gmail.com",
+      "phone": "0717954125",
+      "role": "individual"
+    },
+    {
+      "id": 62,
+      "email": "yashhh@gmail.com",
+      "phone": "+94701060326",
+      "role": "individual"
+    },
+    {
+      "id": 63,
+      "email": "chandeepa@gmail.com",
+      "phone": "+94717954125",
+      "role": "individual"
+    }
+  ],
+  "individuals": [
+    {
+      "user_id": 55,
+      "phone": "0701060326",
+      "full_name": "Yashith Chandeepa"
+    },
+    {
+      "user_id": 57,
+      "phone": "0717954125",
+      "full_name": "Yash Chan"
+    },
+    {
+      "user_id": 62,
+      "phone": "+94701060326",
+      "full_name": "Yashith"
+    },
+    {
+      "user_id": 63,
+      "phone": "+94717954125",
+      "full_name": "Yashith"
+    }
+  ]
+}

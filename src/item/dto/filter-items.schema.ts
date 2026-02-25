@@ -1,3 +1,5 @@
+//RentAnything-Backend/src/item/dto/filter-items.schema.ts
+
 
 import { z } from 'zod';
 
@@ -10,6 +12,9 @@ export const FilterItemsSchema = z.object({
   location: z.string().optional(),
   ownerId: z.coerce.number().optional(),
   excludeId: z.coerce.number().optional(),
+  excludeOwnerId: z.coerce.number().optional(),
+  page: z.coerce.number().optional(),
+  limit: z.coerce.number().optional(),
 }).catchall(z.any());
 
 export type FilterItemsDto = z.infer<typeof FilterItemsSchema>;

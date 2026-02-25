@@ -14,6 +14,8 @@ import { CategoryDetailsService } from './services/category-details.service';
 import { SavedItem } from './entities/saved-item.entity';
 import { SavedItemService } from './saved-item.service';
 import { SavedItemController } from './saved-item.controller';
+import { ItemInteraction } from './entities/item-interaction.entity';
+import { Review } from '../review/entities/review.entity';
 
 import { User } from '../user/entities/user.entity';
 import { Category } from '../category/entities/category.entity';
@@ -36,6 +38,8 @@ import { Availability } from '../availability/entities/availability.entity';
       HomeDetails,
       Availability,
       SavedItem,
+      ItemInteraction,
+      Review,
     ]),
   ],
   providers: [ItemService, CategoryDetailsService, SavedItemService],

@@ -1,6 +1,8 @@
+//RentAnything-Backend/src/review/review.service.ts
+
 import { Injectable, BadRequestException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
 import { Review } from './entities/review.entity';
 import { Item } from '../item/entities/item.entity';
 import { Rental, RentalStatus } from '../rental/entities/rental.entity';
@@ -36,139 +38,212 @@ export class ReviewService {
        throw new BadRequestException('You cannot review your own item');
     }
 
-    // A user must have successfully completed a rental for this item to review it
-    const hasCompletedRental = await this.rentalRepository.findOne({
-      where: {
-        rentalRequest: {
-          renter: { id: reviewerId },
-          item: { id: itemId },
-        },
-        status: RentalStatus.COMPLETED,
-      },
-      relations: ['rentalRequest', 'rentalRequest.renter', 'rentalRequest.item'],
-    });
+    // Restriction removed: Anyone can now review an owner
 
-    if (!hasCompletedRental) {
-      throw new BadRequestException('You can only review items you have successfully rented and completed');
-    }
+    // Restriction removed: Anyone can now review multiple times
 
-    const existingReview = await this.reviewRepository.findOne({
+    console.log(`[ReviewService] Attempting upsert: reviewerId=${reviewerId}, itemId=${itemId}, ownerId=${item.owner.id}`);
+
+    let review = await this.reviewRepository.findOne({
       where: { reviewerId, itemId },
     });
 
-    if (existingReview) {
-      throw new BadRequestException('You have already reviewed this item');
+    if (review) {
+      console.log(`[ReviewService] Found existing review ${review.id}, updating...`);
+      review.rating = rating;
+      review.feedback = feedback ?? null;
+    } else {
+      console.log(`[ReviewService] No existing review found, creating new one...`);
+      review = this.reviewRepository.create({
+        rating,
+        feedback,
+        reviewerId,
+        itemId,
+        ownerId: item.owner.id,
+      });
     }
 
-    const review = this.reviewRepository.create({
-      rating,
-      feedback,
-      reviewerId,
-      itemId,
-      ownerId: item.owner.id,
-    });
+    const savedReview = await this.reviewRepository.save(review);
+    console.log(`[ReviewService] Saved review: id=${savedReview.id}, ownerId=${item.owner.id}`);
 
-    await this.reviewRepository.save(review);
-
-    // Invalidate Redis cache
-    const keysToInvalidate = await (this.cacheManager as any).store.keys(`item:${itemId}:reviews*`);
-    for (const key of keysToInvalidate) {
-       await this.cacheManager.del(key);
-    }
-    const ownerKeysToInvalidate = await (this.cacheManager as any).store.keys(`user:${item.owner.id}:reviews*`);
-    for (const key of ownerKeysToInvalidate) {
-       await this.cacheManager.del(key);
+    // Deterministic Cache Invalidation
+    try {
+        const ownerId = item.owner.id;
+        // Primary review list keys (Default pagination)
+        await this.cacheManager.del(`item:${itemId}:reviews:page:1:limit:10`);
+        await this.cacheManager.del(`user:${ownerId}:reviews:page:1:limit:10`);
+        
+        console.log(`[ReviewService] Invalidated cache for item ${itemId} and owner ${ownerId}`);
+    } catch (e) {
+      console.warn('Cache invalidation failed:', e);
     }
 
-    return review;
+    return {
+        ...savedReview,
+        ownerId: savedReview.ownerId,
+    };
   }
 
   async getItemReviews(itemId: number, page: number = 1, limit: number = 10) {
     const cacheKey = `item:${itemId}:reviews:page:${page}:limit:${limit}`;
     const cachedData = await this.cacheManager.get(cacheKey);
-
     if (cachedData) {
       return cachedData;
     }
 
-    const { totalReviews, averageRating } = await this.reviewRepository
+    const stats = await this.reviewRepository
       .createQueryBuilder('review')
       .select('COUNT(review.id)', 'totalReviews')
       .addSelect('AVG(review.rating)', 'averageRating')
-      .where('review.item_id = :itemId', { itemId })
+      .where('review.itemId = :itemId', { itemId })
       .getRawOne();
 
+    console.log(`[ReviewService] Raw item stats for item ${itemId}:`, stats);
+
+    const starCountsRaw = await this.reviewRepository
+      .createQueryBuilder('review')
+      .select('review.rating', 'rating')
+      .addSelect('COUNT(review.id)', 'count')
+      .where('review.itemId = :itemId', { itemId })
+      .groupBy('review.rating')
+      .getRawMany();
+
+    const starCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    starCountsRaw.forEach(sc => {
+      const rating = parseInt(sc.rating || sc.review_rating || '0', 10);
+      const count = parseInt(sc.count || sc.review_count || '0', 10);
+      if (rating >= 1 && rating <= 5) {
+        starCounts[rating] = count;
+      }
+    });
+
+    const totalReviewsNum = parseInt(String(stats?.totalReviews || stats?.totalreviews || '0'), 10);
+    const averageRatingNum = parseFloat(String(stats?.averageRating || stats?.averagerating || '0'));
+
     const [reviews, _] = await this.reviewRepository.findAndCount({
-      where: { itemId },
+      where: [
+        { itemId, feedback: Not(IsNull()) },
+        { itemId, feedback: Not('') }
+      ],
       relations: ['reviewer', 'reviewer.individualUser', 'reviewer.company'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
+    
+    // Additional secondary filter in case 'Not("")' behavior is inconsistent with NULLs in TypeORM
+    const filteredResults = reviews.filter(r => r.feedback && r.feedback.trim().length > 0);
 
-    const formattedReviews = reviews.map(r => ({
+    const formattedReviews = filteredResults.map(r => ({
       id: r.id,
       rating: r.rating,
       comment: r.feedback,
       name: r.reviewer?.individualUser?.fullName || r.reviewer?.company?.companyName || 'Anonymous',
-      image: (r.reviewer?.individualUser as any)?.profilePicture || (r.reviewer?.company as any)?.logo || 'https://i.pravatar.cc/150',
+      image: r.reviewer?.individualUser?.avatarUrl || r.reviewer?.company?.logoUrl || null,
       reviewerStatus: r.reviewer?.status,
       createdAt: r.createdAt
     }));
 
      const result = {
-      totalReviews: parseInt(totalReviews || '0', 10),
-      averageRating: parseFloat(averageRating || '0'),
+      totalReviews: totalReviewsNum,
+      averageRating: averageRatingNum,
+      starCounts,
       reviews: formattedReviews,
     };
     
-    await this.cacheManager.set(cacheKey, result, 300000);
-
+    // await this.cacheManager.set(cacheKey, result, 300000);
     return result;
   }
 
   async getUserReviews(userId: number, page: number = 1, limit: number = 10) {
     const cacheKey = `user:${userId}:reviews:page:${page}:limit:${limit}`;
     const cachedData = await this.cacheManager.get(cacheKey);
-
     if (cachedData) {
       return cachedData;
     }
 
-    const { totalReviews, averageRating } = await this.reviewRepository
+    const stats = await this.reviewRepository
       .createQueryBuilder('review')
       .select('COUNT(review.id)', 'totalReviews')
       .addSelect('AVG(review.rating)', 'averageRating')
-      .where('review.owner_id = :userId', { userId })
+      .where('review.ownerId = :userId', { userId })
       .getRawOne();
+    
+    console.log(`[ReviewService] Raw user stats for owner ${userId}:`, stats);
+
+    const starCountsRaw = await this.reviewRepository
+      .createQueryBuilder('review')
+      .select('review.rating', 'rating')
+      .addSelect('COUNT(review.id)', 'count')
+      .where('review.ownerId = :userId', { userId })
+      .groupBy('review.rating')
+      .getRawMany();
+
+    const starCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    starCountsRaw.forEach(sc => {
+      const rating = parseInt(sc.rating || sc.review_rating || '0', 10);
+      const count = parseInt(sc.count || sc.review_count || '0', 10);
+      if (rating >= 1 && rating <= 5) {
+        starCounts[rating] = count;
+      }
+    });
+
+    const totalReviewsNum = parseInt(String(stats?.totalReviews || stats?.totalreviews || '0'), 10);
+    const averageRatingNum = parseFloat(String(stats?.averageRating || stats?.averagerating || '0'));
 
     const [reviews, _] = await this.reviewRepository.findAndCount({
-      where: { ownerId: userId },
+      where: [
+        { ownerId: userId, feedback: Not(IsNull()) },
+        { ownerId: userId, feedback: Not('') }
+      ],
       relations: ['reviewer', 'reviewer.individualUser', 'reviewer.company', 'item'],
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
 
-    const formattedReviews = reviews.map(r => ({
+    const filteredResults = reviews.filter(r => r.feedback && r.feedback.trim().length > 0);
+
+    const formattedReviews = filteredResults.map(r => ({
       id: r.id,
       rating: r.rating,
       comment: r.feedback,
       itemName: r.item?.title,
       name: r.reviewer?.individualUser?.fullName || r.reviewer?.company?.companyName || 'Anonymous',
-      image: (r.reviewer?.individualUser as any)?.profilePicture || (r.reviewer?.company as any)?.logo || 'https://i.pravatar.cc/150',
+      image: r.reviewer?.individualUser?.avatarUrl || r.reviewer?.company?.logoUrl || null,
       reviewerStatus: r.reviewer?.status,
       createdAt: r.createdAt
     }));
 
     const result = {
-      totalReviews: parseInt(totalReviews || '0', 10),
-      averageRating: parseFloat(averageRating || '0'),
+      totalReviews: totalReviewsNum,
+      averageRating: averageRatingNum,
+      starCounts,
       reviews: formattedReviews,
     };
 
-    await this.cacheManager.set(cacheKey, result, 300000);
+    console.log(`[ReviewService] Final response for owner ${userId}:`, {
+      total: result.totalReviews,
+      avg: result.averageRating,
+      count: result.reviews.length
+    });
 
+    await this.cacheManager.set(cacheKey, result, 300000);
     return result;
+  }
+
+  async getMyReviewForItem(userId: number, itemId: number) {
+    const review = await this.reviewRepository.findOne({
+      where: { reviewerId: userId, itemId },
+    });
+
+    if (!review) return null;
+
+    return {
+      id: review.id,
+      rating: review.rating,
+      comment: review.feedback,
+      createdAt: review.createdAt,
+    };
   }
 }
