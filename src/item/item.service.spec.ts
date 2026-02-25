@@ -10,6 +10,8 @@ import { ItemPricing } from '../pricing/entities/item-pricing.entity';
 import { Availability } from '../availability/entities/availability.entity';
 import { CategoryDetailsService } from './services/category-details.service';
 import { NotFoundException } from '@nestjs/common';
+import { ItemInteraction } from './entities/item-interaction.entity';
+import { Review } from '../review/entities/review.entity';
 
 describe('ItemService', () => {
   let service: ItemService;
@@ -43,7 +45,13 @@ describe('ItemService', () => {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      offset: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([mockItem]),
+      getRawMany: jest.fn().mockResolvedValue([{}]),
       getRawAndEntities: jest.fn().mockResolvedValue({
         entities: [mockItem],
         raw: [{}],
@@ -55,6 +63,9 @@ describe('ItemService', () => {
     get: jest.fn(),
     set: jest.fn(),
     del: jest.fn(),
+    store: {
+      keys: jest.fn().mockResolvedValue([]),
+    },
   };
 
   const mockCategoryDetailsService = {
@@ -99,6 +110,14 @@ describe('ItemService', () => {
           useValue: mockRepository,
         },
         {
+          provide: getRepositoryToken(ItemInteraction),
+          useValue: mockRepository,
+        },
+        {
+          provide: getRepositoryToken(Review),
+          useValue: mockRepository,
+        },
+        {
           provide: CategoryDetailsService,
           useValue: mockCategoryDetailsService,
         },
@@ -133,7 +152,7 @@ describe('ItemService', () => {
       mockCacheManager.get.mockResolvedValue([mockItem]);
       const result = await service.findAll();
       expect(result).toEqual([mockItem]);
-      expect(mockCacheManager.get).toHaveBeenCalledWith('all_items');
+      expect(mockCacheManager.get).toHaveBeenCalledWith('items:list:all:{}');
     });
 
     it('should fetch from repo and set cache if not in cache', async () => {
