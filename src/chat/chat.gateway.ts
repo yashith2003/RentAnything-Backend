@@ -1,4 +1,4 @@
-//src/chat/chat.gateway.ts
+//RentAnything-Backend/src/chat/chat.gateway.ts
 
 import {
   WebSocketGateway,
@@ -85,7 +85,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('sendMessage')
   async handleMessage(
-    @MessageBody() data: { threadId: number; content: string },
+    @MessageBody() data: { threadId: number; content: string; attachments?: string[]; attachmentNames?: string[] },
     @ConnectedSocket() client: Socket,
   ) {
     const senderId = client.data.userId;
@@ -94,7 +94,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    const savedMessage = await this.chatService.saveMessage(data.threadId, senderId, data.content);
+    console.log(`[ChatGateway] [MSG_RECEIVE] From user ${senderId} to thread ${data.threadId}:`, {
+      content: data.content,
+      attachmentsCount: data.attachments?.length || 0,
+      attachments: data.attachments,
+      attachmentNames: data.attachmentNames
+    });
+
+    const savedMessage = await this.chatService.saveMessage(
+      data.threadId, 
+      senderId, 
+      data.content, 
+      data.attachments,
+      data.attachmentNames
+    );
     
     // Broadcast to the room
     this.server.to(`thread_${data.threadId}`).emit('newMessage', savedMessage);

@@ -163,7 +163,7 @@ export class AuthService {
 
   async verifyOtp(dto: VerifyOtpDto) {
     console.log(`Verifying OTP for phone: ${dto.phone}, OTP: ${dto.otp}`);
-    if (dto.otp !== '1111') {
+    if (dto.otp !== '111111') {
       throw new UnauthorizedException('Invalid OTP');
     }
 

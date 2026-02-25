@@ -21,7 +21,10 @@ describe('ItemService', () => {
     title: 'Test Item',
     description: 'Description',
     category: { id: 1 },
-    owner: { id: 1 },
+    owner: { id: 1, totalListings: 0 },
+    averageRating: 0,
+    reviewCount: 0,
+    categoryDetails: undefined,
   };
 
   const mockRepository = {
@@ -29,13 +32,22 @@ describe('ItemService', () => {
     save: jest.fn().mockResolvedValue(mockItem),
     find: jest.fn().mockResolvedValue([mockItem]),
     findOne: jest.fn().mockResolvedValue(mockItem),
+    count: jest.fn().mockResolvedValue(0),
     remove: jest.fn().mockResolvedValue(mockItem),
     createQueryBuilder: jest.fn().mockReturnValue({
       leftJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      addGroupBy: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([mockItem]),
+      getRawAndEntities: jest.fn().mockResolvedValue({
+        entities: [mockItem],
+        raw: [{}],
+      }),
     }),
   };
 

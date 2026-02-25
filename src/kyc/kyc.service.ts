@@ -90,19 +90,20 @@ export class KycService {
   private async recalculateOverallStatus(submissionId: number) {
     const submission = await this.submissionRepository.findOne({
       where: { id: submissionId },
-      relations: ['documents'],
+      relations: ['documents', 'user'],
     });
     if (!submission) return;
 
     const docs = submission.documents;
+    let newStatus = KycStatus.NOT_STARTED;
+
     if (docs.length === 0) {
-      submission.overallStatus = KycStatus.NOT_STARTED;
+      newStatus = KycStatus.NOT_STARTED;
     } else if (docs.some((d) => d.status === KycStatus.REJECTED)) {
-      submission.overallStatus = KycStatus.REJECTED;
+      newStatus = KycStatus.REJECTED;
     } else if (docs.some((d) => d.status === KycStatus.PENDING)) {
-      submission.overallStatus = KycStatus.PENDING;
+      newStatus = KycStatus.PENDING;
     } else {
-      // Logic for VERIFIED: Let's say FACE_SELFIE and at least one ID doc (NIC or Passport or License) are required
       const hasSelfie = docs.some(d => d.type === KycDocumentType.FACE_SELFIE && d.status === KycStatus.VERIFIED);
       const hasId = docs.some(d => 
         [KycDocumentType.NIC_FRONT, KycDocumentType.PASSPORT, KycDocumentType.DRIVING_LICENSE].includes(d.type) && 
@@ -110,12 +111,22 @@ export class KycService {
       );
       
       if (hasSelfie && hasId) {
-        submission.overallStatus = KycStatus.VERIFIED;
+        newStatus = KycStatus.VERIFIED;
       } else {
-        submission.overallStatus = KycStatus.PENDING;
+        newStatus = KycStatus.PENDING;
       }
     }
 
+    submission.overallStatus = newStatus;
     await this.submissionRepository.save(submission);
+
+    // Sync with User status if possible
+    if (submission.user) {
+      submission.user.status = newStatus.toLowerCase(); // keep it consistent with 'pending'
+      await this.submissionRepository.manager.save(submission.user);
+      
+      // Invalidate user cache
+      await this.cacheManager.del(`user_profile_${submission.userId}`);
+    }
   }
 }

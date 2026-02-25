@@ -14,6 +14,12 @@ import { join } from 'path';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  app.enableCors({
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type,Accept,Authorization',
+  });
+
   // Serve the uploads directory as static files so uploaded images are accessible
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
 

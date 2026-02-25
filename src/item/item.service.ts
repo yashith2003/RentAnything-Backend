@@ -107,7 +107,10 @@ export class ItemService {
       .leftJoinAndSelect('item.category', 'category')
       .leftJoinAndSelect('category.parentCategory', 'parentCategory')
       .leftJoinAndSelect('item.address', 'address')
-      .leftJoinAndSelect('item.pricings', 'pricing');
+      .leftJoinAndSelect('item.pricings', 'pricing')
+      .leftJoin('item.reviews', 'review')
+      .addSelect('COUNT(review.id)', 'item_reviewCount')
+      .addSelect('AVG(review.rating)', 'item_averageRating');
 
     if (categoryId) {
       // Get all subcategories recursively
@@ -161,16 +164,69 @@ export class ItemService {
       }
     }
 
-    const items = await queryBuilder.getMany();
+    queryBuilder.groupBy('item.id')
+      .addGroupBy('owner.id')
+      .addGroupBy('individualUser.id')
+      .addGroupBy('company.id')
+      .addGroupBy('category.id')
+      .addGroupBy('parentCategory.id')
+      .addGroupBy('address.id')
+      .addGroupBy('pricing.id');
 
-    await this.cacheManager.set(cacheKey, items, 300); // 5 minutes cache
-    return items;
+    const items = await queryBuilder.getRawAndEntities();
+
+    const result = items.entities.map((entity, index) => {
+      const raw = items.raw[index];
+      return {
+        ...entity,
+        reviewCount: parseInt(raw.item_reviewCount, 10) || 0,
+        averageRating: parseFloat(raw.item_averageRating) || 0,
+      };
+    });
+
+    await this.cacheManager.set(cacheKey, result, 300); // 5 minutes cache
+    return result as any;
   }
 
   async findMyItems(ownerId: number) {
     return this.itemRepository.find({
       where: { owner: { id: ownerId } },
       relations: ['category', 'address', 'owner'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findMyItemsWithReviewStats(ownerId: number) {
+    const queryBuilder = this.itemRepository.createQueryBuilder('item')
+      .leftJoinAndSelect('item.category', 'category')
+      .leftJoinAndSelect('item.address', 'address')
+      .leftJoinAndSelect('item.pricings', 'pricing')
+      .leftJoin('item.reviews', 'review')
+      .addSelect('COUNT(review.id)', 'reviewCount')
+      .addSelect('AVG(review.rating)', 'averageRating')
+      .where('item.owner_id = :ownerId', { ownerId })
+      .groupBy('item.id')
+      .addGroupBy('category.id')
+      .addGroupBy('address.id')
+      .addGroupBy('pricing.id')
+      .orderBy('item.createdAt', 'DESC');
+
+    const rawAndEntities = await queryBuilder.getRawAndEntities();
+
+    return rawAndEntities.entities.map((item, index) => {
+      const raw = rawAndEntities.raw[index];
+      return {
+        ...item,
+        reviewCount: parseInt(raw.reviewCount, 10) || 0,
+        averageRating: parseFloat(raw.averageRating) || 0,
+      };
+    });
+  }
+
+  async findByOwner(ownerId: number) {
+    return this.itemRepository.find({
+      where: { owner: { id: ownerId } },
+      relations: ['category', 'address', 'pricings'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -190,12 +246,17 @@ export class ItemService {
         'category.parentCategory', 
         'address', 
         'pricings', 
-        'availabilities'
+        'availabilities',
+        'reviews'
       ],
     });
     if (!item) {
       throw new NotFoundException(`Item with ID ${id} not found`);
     }
+
+    const ratings = item.reviews?.map(r => r.rating) || [];
+    const averageRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+    const reviewCount = ratings.length;
 
     // Fetch and attach category-specific details
     const categoryName = item.category.parentCategory?.name || item.category.name;
@@ -204,8 +265,13 @@ export class ItemService {
     const result = {
       ...item,
       categoryDetails,
+      averageRating,
+      reviewCount,
+      owner: {
+        ...item.owner,
+        totalListings: await this.itemRepository.count({ where: { owner: { id: item.owner.id } } })
+      }
     };
-
     await this.cacheManager.set(cacheKey, result, 300 * 1000); // 5 mins
     return result;
   }
@@ -262,6 +328,9 @@ export class ItemService {
     const queryBuilder = this.itemRepository.createQueryBuilder('item')
       .leftJoinAndSelect('item.address', 'address')
       .leftJoinAndSelect('item.pricings', 'pricing')
+      .leftJoin('item.reviews', 'review')
+      .addSelect('COUNT(review.id)', 'reviewCount')
+      .addSelect('AVG(review.rating)', 'averageRating')
       .where('address.lat BETWEEN :swLat AND :neLat', { swLat, neLat })
       .andWhere('address.lng BETWEEN :swLng AND :neLng', { swLng, neLng });
 
@@ -312,15 +381,21 @@ export class ItemService {
       }
     }
 
-    const items = await queryBuilder.getMany();
+    queryBuilder.groupBy('item.id')
+      .addGroupBy('address.id')
+      .addGroupBy('pricing.id');
+
+    const items = await queryBuilder.getRawMany();
 
     // Map to lightweight DTO
     return items.map(item => ({
-      id: item.id,
-      title: item.title,
-      price: item.pricings?.[0]?.price || 0,
-      latitude: parseFloat(item.address?.lat as any),
-      longitude: parseFloat(item.address?.lng as any),
+      id: item.item_id,
+      title: item.item_title,
+      price: item.pricing_price || 0,
+      latitude: parseFloat(item.address_lat as any),
+      longitude: parseFloat(item.address_lng as any),
+      averageRating: parseFloat(item.averageRating) || 0,
+      reviewCount: parseInt(item.reviewCount, 10) || 0,
     }));
   }
 }

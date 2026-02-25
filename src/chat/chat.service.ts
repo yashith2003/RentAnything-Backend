@@ -1,8 +1,8 @@
-//src/chat/chat.service.ts
+//RentAnything-Backend/src/chat/chat.service.ts
 
 import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not } from 'typeorm';
 import { ChatThread } from './entities/chat-thread.entity';
 import { ChatMessage } from './entities/chat-message.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -22,10 +22,9 @@ export class ChatService {
     const userOneId = Math.min(userIdA, userIdB);
     const userTwoId = Math.max(userIdA, userIdB);
 
-    // Check if thread already exists
+    // Check if thread already exists for this user pair
     const existingThread = await this.threadRepository.findOne({
       where: {
-        itemId: itemId,
         userOneId: userOneId,
         userTwoId: userTwoId,
       },
@@ -36,7 +35,7 @@ export class ChatService {
     }
 
     const thread = this.threadRepository.create({
-      itemId: itemId,
+      itemId: itemId, // First item starting the conversation
       userOneId: userOneId,
       userTwoId: userTwoId,
     });
@@ -49,34 +48,43 @@ export class ChatService {
     return savedThread;
   }
 
-  async saveMessage(threadId: number, senderId: number, content: string): Promise<ChatMessage> {
+  async saveMessage(threadId: number, senderId: number, content: string, attachments?: string[], attachmentNames?: string[]): Promise<ChatMessage> {
+    console.log(`[ChatService] [SAVE_MESSAGE] Thread ${threadId}, Sender ${senderId}, Attachments:`, attachments);
     const message = this.messageRepository.create({
       thread: { id: threadId },
+      threadId, // Explicitly set for hooks/relations if needed
       sender: { id: senderId },
       content,
+      attachments,
+      attachmentNames,
     });
     const savedMessage = await this.messageRepository.save(message);
-    
-    // Reload with relations for broadcast
-    const broadcastMessage = await this.messageRepository.findOne({
-      where: { id: savedMessage.id },
-      relations: ['sender', 'thread'],
-    });
     
     // Update lastMessageId in thread
     await this.threadRepository.update(threadId, { lastMessageId: savedMessage.id });
     
-    // Invalidate/Update cache for this thread
+    // Reload with relations for broadcast
+    const broadcastMessage = await this.messageRepository.findOne({
+      where: { id: savedMessage.id },
+      relations: [
+        'sender',
+        'sender.individualUser',
+        'sender.company',
+        'thread',
+      ],
+    });
+
+    console.log(`[ChatService] Message saved with ID ${savedMessage.id}. Attachments count:`, savedMessage.attachments?.length || 0);
+    
+    // Invalidate caches
     await this.cacheManager.del(`thread_${threadId}_messages`);
-    await this.cacheManager.del(`thread_${threadId}_details`);
-    
-    // Invalidate thread lists for participants to update inbox
-    const thread = await this.threadRepository.findOne({ where: { id: threadId } });
-    if (thread) {
-      await this.cacheManager.del(`user_${thread.userOneId}_threads`);
-      await this.cacheManager.del(`user_${thread.userTwoId}_threads`);
+    const threadDetails = await this.threadRepository.findOne({ where: { id: threadId } });
+    if (threadDetails) {
+      await this.cacheManager.del(`user_${threadDetails.userOneId}_threads`);
+      await this.cacheManager.del(`user_${threadDetails.userTwoId}_threads`);
+      await this.cacheManager.del(`thread_${threadId}_details`);
     }
-    
+
     return broadcastMessage!;
   }
 
@@ -91,28 +99,51 @@ export class ChatService {
     const messages = await this.messageRepository.find({
       where: { thread: { id: threadId } },
       order: { createdAt: 'ASC' },
-      relations: ['sender'],
+      relations: ['sender', 'sender.individualUser', 'sender.company'],
     });
+
+    console.log(`[ChatService] getThreadMessages ${threadId} attachments:`, messages.map(m => m.attachments));
 
     await this.cacheManager.set(cacheKey, messages, 3600 * 1000); // Cache for 1 hour
     return messages;
   }
 
-  async getUserThreads(userId: number): Promise<ChatThread[]> {
+  async getUserThreads(userId: number): Promise<any[]> {
     const cacheKey = `user_${userId}_threads`;
-    const cachedThreads = await this.cacheManager.get<ChatThread[]>(cacheKey);
+    const cachedThreads = await this.cacheManager.get<any[]>(cacheKey);
 
     if (cachedThreads) {
       return cachedThreads;
     }
 
     const threads = await this.threadRepository.find({
-      where: [{ userOne: { id: userId } }, { userTwo: { id: userId } }],
-      relations: ['item', 'userOne', 'userTwo'],
+      where: [{ userOneId: userId }, { userTwoId: userId }],
+      relations: [
+        'item',
+        'userOne',
+        'userOne.individualUser',
+        'userOne.company',
+        'userTwo',
+        'userTwo.individualUser',
+        'userTwo.company',
+        'lastMessage',
+      ],
+      order: { updatedAt: 'DESC' },
     });
 
-    await this.cacheManager.set(cacheKey, threads, 300 * 1000); // 5 minutes
-    return threads;
+    const threadsWithUnread = await Promise.all(threads.map(async (thread) => {
+      const unreadCount = await this.messageRepository.count({
+        where: {
+          threadId: thread.id,
+          senderId: Not(userId),
+          isRead: false,
+        },
+      });
+      return { ...thread, unreadCount };
+    }));
+
+    await this.cacheManager.set(cacheKey, threadsWithUnread, 300 * 1000); // 5 minutes
+    return threadsWithUnread;
   }
 
   async getThreadDetails(threadId: number): Promise<ChatThread | null> {
@@ -125,7 +156,15 @@ export class ChatService {
 
     const thread = await this.threadRepository.findOne({
       where: { id: threadId },
-      relations: ['item', 'userOne', 'userTwo'],
+      relations: [
+        'item',
+        'userOne',
+        'userOne.individualUser',
+        'userOne.company',
+        'userTwo',
+        'userTwo.individualUser',
+        'userTwo.company',
+      ],
     });
 
     if (thread) {
@@ -133,5 +172,14 @@ export class ChatService {
     }
     
     return thread;
+  }
+
+  async markThreadAsRead(threadId: number, userId: number): Promise<void> {
+    await this.messageRepository.update(
+      { threadId, senderId: Not(userId), isRead: false },
+      { isRead: true }
+    );
+    await this.cacheManager.del(`user_${userId}_threads`);
+    await this.cacheManager.del(`thread_${threadId}_messages`);
   }
 }

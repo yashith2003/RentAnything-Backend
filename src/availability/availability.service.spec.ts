@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AvailabilityService } from './availability.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Availability } from './entities/availability.entity';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 describe('AvailabilityService', () => {
   let service: AvailabilityService;
@@ -19,6 +20,12 @@ describe('AvailabilityService', () => {
     save: jest.fn().mockResolvedValue([mockAvailability]),
   };
 
+  const mockCacheManager = {
+    get: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -26,6 +33,10 @@ describe('AvailabilityService', () => {
         {
           provide: getRepositoryToken(Availability),
           useValue: mockRepository,
+        },
+        {
+          provide: CACHE_MANAGER,
+          useValue: mockCacheManager,
         },
       ],
     }).compile();

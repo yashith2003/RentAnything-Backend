@@ -123,7 +123,7 @@ describe('AuthService', () => {
   describe('verifyOtp', () => {
     it('should return tokens if OTP is correct', async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser);
-      const result = await service.verifyOtp({ phone: mockUser.phone, otp: '1111' });
+      const result = await service.verifyOtp({ phone: mockUser.phone, otp: '111111' });
       
       expect(result).toHaveProperty('access_token');
       expect(result).toHaveProperty('refresh_token');

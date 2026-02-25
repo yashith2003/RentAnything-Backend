@@ -1,4 +1,4 @@
-//src/app.module.ts
+//RentAnything-Backend/src/app.module.ts
 
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -23,6 +23,7 @@ import { RentalModule } from './rental/rental.module';
 import { IncidentModule } from './incident/incident.module';
 import { ChatModule } from './chat/chat.module';
 import { KycModule } from './kyc/kyc.module';
+import { ReviewModule } from './review/review.module';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { KycModule } from './kyc/kyc.module';
     RentalModule,
     IncidentModule,
     KycModule,
+    ReviewModule,
   ],
 
   controllers: [AppController],

@@ -11,6 +11,7 @@ import { ElectronicsDetails } from './electronics-details.entity';
 import { HomeDetails } from './home-details.entity';
 import { FashionDetails } from './fashion-details.entity';
 import { SportsDetails } from './sports-details.entity';
+import { Review } from '../../review/entities/review.entity';
 
 export enum ItemStatus {
   AVAILABLE = 'available',
@@ -99,4 +100,7 @@ export class Item {
 
   @OneToOne(() => SportsDetails, (details) => details.item)
   sportsDetails: SportsDetails;
+
+  @OneToMany(() => Review, (review) => review.item)
+  reviews: Review[];
 }

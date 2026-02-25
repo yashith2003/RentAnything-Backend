@@ -15,12 +15,12 @@ import { FilterItemsSchema } from './dto/filter-items.schema';
 import type { FilterItemsDto } from './dto/filter-items.schema';
 
 const uploadDir = join(process.cwd(), 'uploads');
-const itemUploadDir = join(process.cwd(), 'uploads', 'item');
+const itemsUploadRootDir = join(process.cwd(), 'uploads', 'items');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
-if (!fs.existsSync(itemUploadDir)) {
-  fs.mkdirSync(itemUploadDir, { recursive: true });
+if (!fs.existsSync(itemsUploadRootDir)) {
+  fs.mkdirSync(itemsUploadRootDir, { recursive: true });
 }
 
 @ApiTags('items')
@@ -42,8 +42,12 @@ export class ItemController {
   @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('file', {
     storage: diskStorage({
-      destination: (req, file, cb) => {
-        cb(null, itemUploadDir);
+      destination: (req: any, file, cb) => {
+        const userDir = join(process.cwd(), 'uploads', 'items', String(req.user.id));
+        if (!fs.existsSync(userDir)) {
+          fs.mkdirSync(userDir, { recursive: true });
+        }
+        cb(null, userDir);
       },
       filename: (req, file, cb) => {
         const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
@@ -59,12 +63,12 @@ export class ItemController {
     },
   })
   @ApiOperation({ summary: 'Upload an item image (for new items, no ID yet)' })
-  uploadFile(@UploadedFile() file: Express.Multer.File) {
+  uploadFile(@Request() req, @UploadedFile() file: Express.Multer.File) {
     console.log('[Upload] Received file:', file);
     if (!file) {
       throw new BadRequestException('No file was uploaded. Make sure you are sending a multipart/form-data request with a "file" field.');
     }
-    const url = `uploads/item/${file.filename}`;
+    const url = `uploads/items/${req.user.id}/${file.filename}`;
     console.log('[Upload] Saved item image at:', url);
     return { url };
   }
@@ -75,8 +79,8 @@ export class ItemController {
   @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('file', {
     storage: diskStorage({
-      destination: (req, file, cb) => {
-        const itemDir = join(process.cwd(), 'uploads', 'item', String(req.params.id));
+      destination: (req: any, file, cb) => {
+        const itemDir = join(process.cwd(), 'uploads', 'items', String(req.user.id), String(req.params.id));
         if (!fs.existsSync(itemDir)) {
           fs.mkdirSync(itemDir, { recursive: true });
         }
@@ -96,12 +100,12 @@ export class ItemController {
     },
   })
   @ApiOperation({ summary: 'Upload an image for an existing item — saves to uploads/item/:id/' })
-  uploadItemImage(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
+  uploadItemImage(@Param('id') id: string, @Request() req: any, @UploadedFile() file: Express.Multer.File) {
     console.log(`[Upload] Received image for item ${id}:`, file);
     if (!file) {
       throw new BadRequestException('No file was uploaded.');
     }
-    const url = `uploads/item/${id}/${file.filename}`;
+    const url = `uploads/items/${req.user.id}/${id}/${file.filename}`;
     console.log('[Upload] Saved item image at:', url);
     return { url };
   }
@@ -136,10 +140,28 @@ export class ItemController {
     return this.itemService.findMyItems(req.user.id);
   }
 
+  @Get('my-items/reviews')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get my items with review statistics' })
+  findMyItemsWithReviews(@Request() req) {
+    return this.itemService.findMyItemsWithReviewStats(req.user.id);
+  }
+
+  @Get('owner/:ownerId')
+  @ApiOperation({ summary: 'Get items listed by a specific owner' })
+  findItemsByOwner(@Param('ownerId') ownerId: string) {
+    return this.itemService.findByOwner(+ownerId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific item by ID' })
   findOne(@Param('id') id: string) {
-    return this.itemService.findOne(+id);
+    const numericId = +id;
+    if (isNaN(numericId)) {
+        throw new BadRequestException('Invalid item ID');
+    }
+    return this.itemService.findOne(numericId);
   }
 
   @Patch(':id')

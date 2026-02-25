@@ -1,3 +1,5 @@
+//RentAnything-Backend/src/chat/chat.service.spec.ts
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { ChatService } from './chat.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -41,6 +43,7 @@ describe('ChatService', () => {
             save: jest.fn().mockResolvedValue(mockMessage),
             find: jest.fn().mockResolvedValue([mockMessage]),
             findOne: jest.fn().mockResolvedValue(mockMessage),
+            count: jest.fn().mockResolvedValue(0),
           },
         },
         {
@@ -96,7 +99,7 @@ describe('ChatService', () => {
   describe('getUserThreads', () => {
     it('should return all threads for a user', async () => {
       const result = await service.getUserThreads(1);
-      expect(result).toEqual([mockThread]);
+      expect(result).toEqual([{ ...mockThread, unreadCount: 0 }]);
     });
   });
 });

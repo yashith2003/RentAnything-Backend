@@ -9,9 +9,9 @@ export class VerifyOtpDto {
   @IsNotEmpty()
   phone: string;
 
-  @ApiProperty({ example: '1111' })
+  @ApiProperty({ example: '111111' })
   @IsString()
   @IsNotEmpty()
-  @Length(4, 4)
+  @Length(6, 6)
   otp: string;
 }

@@ -1,4 +1,4 @@
-//src/chat/entities/chat-thread.entity.ts
+//RentAnything-Backend/src/chat/entities/chat-thread.entity.ts
 
 import { Entity, PrimaryGeneratedColumn, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn, JoinColumn, Unique, Column } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
@@ -6,7 +6,7 @@ import { Item } from '../../item/entities/item.entity';
 import { ChatMessage } from './chat-message.entity';
 
 @Entity('chat_threads')
-@Unique(['itemId', 'userOneId', 'userTwoId'])
+@Unique(['userOneId', 'userTwoId'])
 export class ChatThread {
   @PrimaryGeneratedColumn()
   id: number;
@@ -37,6 +37,10 @@ export class ChatThread {
 
   @Column({ name: 'last_message_id', nullable: true })
   lastMessageId: number;
+
+  @ManyToOne(() => ChatMessage)
+  @JoinColumn({ name: 'last_message_id' })
+  lastMessage: ChatMessage;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
