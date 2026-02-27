@@ -139,6 +139,12 @@ export class ItemController {
     return this.itemService.findTrending(cat ? +cat : undefined, filters);
   }
 
+  @Get('search')
+  @ApiOperation({ summary: 'Search items using hybrid full-text and similarity ranking' })
+  search(@Query('q') q: string, @Query('cat') cat?: string, @Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.itemService.search(q, cat ? +cat : undefined, page ? +page : 1, limit ? +limit : 20);
+  }
+
   @Post(':id/interact')
   @ApiOperation({ summary: 'Record a user interaction with an item (VIEW, CALL, CHAT)' })
   async recordInteraction(

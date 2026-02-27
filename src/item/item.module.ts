@@ -13,9 +13,11 @@ import { ItemController } from './item.controller';
 import { CategoryDetailsService } from './services/category-details.service';
 import { SavedItem } from './entities/saved-item.entity';
 import { SavedItemService } from './saved-item.service';
+import { SearchSetupService } from './services/search-setup.service';
 import { SavedItemController } from './saved-item.controller';
 import { ItemInteraction } from './entities/item-interaction.entity';
 import { Review } from '../review/entities/review.entity';
+import { Synonym } from './entities/synonym.entity';
 
 import { User } from '../user/entities/user.entity';
 import { Category } from '../category/entities/category.entity';
@@ -40,9 +42,10 @@ import { Availability } from '../availability/entities/availability.entity';
       SavedItem,
       ItemInteraction,
       Review,
+      Synonym,
     ]),
   ],
-  providers: [ItemService, CategoryDetailsService, SavedItemService],
+  providers: [ItemService, CategoryDetailsService, SavedItemService, SearchSetupService],
   controllers: [SavedItemController, ItemController],
   exports: [ItemService, CategoryDetailsService, SavedItemService, TypeOrmModule],
 })

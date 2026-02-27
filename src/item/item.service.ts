@@ -16,6 +16,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import * as cacheManager from 'cache-manager';
 import { ItemInteraction, InteractionType } from './entities/item-interaction.entity';
 import { Review } from '../review/entities/review.entity';
+import { Synonym } from './entities/synonym.entity';
 
 @Injectable()
 export class ItemService {
@@ -28,6 +29,7 @@ export class ItemService {
     @InjectRepository(Availability) private availabilityRepository: Repository<Availability>,
     @InjectRepository(ItemInteraction) private interactionRepository: Repository<ItemInteraction>,
     @InjectRepository(Review) private reviewRepository: Repository<Review>,
+    @InjectRepository(Synonym) private synonymRepository: Repository<Synonym>,
     private categoryDetailsService: CategoryDetailsService,
     @Inject(CACHE_MANAGER) private cacheManager: cacheManager.Cache,
   ) {}
@@ -364,7 +366,7 @@ export class ItemService {
     const queryBuilder = this.itemRepository.createQueryBuilder('item')
       .leftJoinAndSelect('item.address', 'address')
       .leftJoinAndSelect('item.pricings', 'pricing')
-      .leftJoin('item.reviews', 'review')
+      .leftJoin('reviews', 'review', 'review.owner_id = item.owner_id')
       .addSelect('COUNT(review.id)', 'reviewCount')
       .addSelect('AVG(review.rating)', 'averageRating')
       .where('address.lat BETWEEN :swLat AND :neLat', { swLat, neLat })
@@ -517,7 +519,18 @@ export class ItemService {
     }
 
     if (categoryId) {
-      queryBuilder.andWhere('item.category_id = :categoryId', { categoryId });
+      // Get all subcategories recursively
+      const subcategories = await this.categoryRepository.query(`
+        WITH RECURSIVE cat_tree AS (
+          SELECT id FROM categories WHERE id = $1
+          UNION ALL
+          SELECT c.id FROM categories c
+          INNER JOIN cat_tree ct ON c.parent_category_id = ct.id
+        )
+        SELECT id FROM cat_tree
+      `, [categoryId]);
+      const categoryIds = subcategories.map((c: any) => c.id);
+      queryBuilder.andWhere('item.category_id IN (:...categoryIds)', { categoryIds });
     }
 
     if (search) {
@@ -574,5 +587,101 @@ export class ItemService {
 
     await this.cacheManager.set(cacheKey, result, 120);
     return result as any;
+  }
+
+  async search(query: string, categoryId?: number, page: number = 1, limit: number = 20) {
+    if (!query || query.trim().length === 0) {
+      return this.findAll(categoryId, { page, limit });
+    }
+
+    const normalizedQuery = query.toLowerCase().trim().replace(/[^\w\s]/g, '');
+    const cacheKey = `search:${normalizedQuery}:${categoryId || 'all'}:${page}:${limit}`;
+    const cachedResults = await this.cacheManager.get(cacheKey);
+    if (cachedResults) return cachedResults;
+
+    // Expand search query with synonyms
+    const synonyms = await this.synonymRepository.find();
+    let expandedQuery = normalizedQuery;
+    for (const s of synonyms) {
+      if (normalizedQuery.includes(s.word)) {
+        expandedQuery += ' | ' + s.synonyms.join(' | ');
+      }
+    }
+
+    // Format query for tsquery (prefix search)
+    const formattedQuery = expandedQuery
+      .split(' ')
+      .filter((word) => word.length > 0)
+      .map((word) => `${word}:*`)
+      .join(' | ');
+
+    const skip = (page - 1) * limit;
+
+    // Hybrid search query
+    const results = await this.itemRepository.createQueryBuilder('item')
+      .leftJoinAndSelect('item.owner', 'owner')
+      .leftJoinAndSelect('owner.individualUser', 'individualUser')
+      .leftJoinAndSelect('owner.company', 'company')
+      .leftJoinAndSelect('item.category', 'category')
+      .leftJoinAndSelect('item.address', 'address')
+      .leftJoinAndSelect('item.pricings', 'pricing')
+      .addSelect(`ts_rank_cd(item.search_vector, to_tsquery('english', :tsQuery))`, 'tsRank')
+      .addSelect(`similarity(item.title, :rawQuery)`, 'titleSim')
+      // Rating and Popularity boost subquery
+      .leftJoin(subQuery => {
+          return subQuery
+              .select('item_id', 'itemId')
+              .addSelect('COUNT(*)', 'viewCount')
+              .from(ItemInteraction, 'ii')
+              .where("ii.type = 'VIEW'")
+              .groupBy('item_id');
+      }, 'pop', 'pop.itemId = item.id')
+      .leftJoin(subQuery => {
+          return subQuery
+              .select('item_id', 'itemId')
+              .addSelect('AVG(rating)', 'avgRating')
+              .addSelect('COUNT(*)', 'revCount')
+              .from(Review, 'r')
+              .groupBy('item_id');
+      }, 'rev', 'rev.itemId = item.id')
+      .addSelect(`COALESCE(pop.viewCount, 0)`, 'popularity')
+      .addSelect(`COALESCE(rev.avgRating, 0)`, 'rating')
+      .where(`item.search_vector @@ to_tsquery('english', :tsQuery) OR item.title % :rawQuery`, { 
+          tsQuery: formattedQuery, 
+          rawQuery: normalizedQuery 
+      });
+
+    if (categoryId) {
+        // Get all subcategories recursively (simplified for search)
+        results.andWhere('item.category_id = :categoryId', { categoryId });
+    }
+
+    // Comprehensive score logic
+    results.addSelect(`
+        (0.7 * ts_rank_cd(item.search_vector, to_tsquery('english', :tsQuery))) + 
+        (0.3 * similarity(item.title, :rawQuery)) + 
+        (0.01 * LEAST(COALESCE(pop.viewCount, 0), 100)) + 
+        (0.05 * COALESCE(rev.avgRating, 0))
+    `, 'finalScore');
+
+    results.orderBy('item.search_vector @@ to_tsquery(\'english\', :tsQuery)', 'DESC') // Exact matches first
+      .addOrderBy('"finalScore"', 'DESC')
+      .limit(limit)
+      .offset(skip);
+
+    const rawAndEntities = await results.getRawAndEntities();
+
+    const finalResult = rawAndEntities.entities.map((entity, index) => {
+      const raw = rawAndEntities.raw[index];
+      return {
+        ...entity,
+        searchScore: parseFloat(raw.finalScore),
+        reviewCount: parseInt(raw.revCount || '0', 10),
+        averageRating: parseFloat(raw.rating || '0'),
+      };
+    });
+
+    await this.cacheManager.set(cacheKey, finalResult, 120); // 120s TTL as requested
+    return finalResult;
   }
 }

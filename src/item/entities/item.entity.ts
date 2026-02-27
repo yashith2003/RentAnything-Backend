@@ -77,6 +77,9 @@ export class Item {
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
+  @Column({ type: 'tsvector', nullable: true, select: false })
+  searchVector: any;
+
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 

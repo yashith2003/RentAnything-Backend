@@ -100,6 +100,9 @@ export class AuthService {
     const address = this.addressRepository.create({
       user: savedUser,
       address: dto.address,
+      lat: dto.lat,
+      lng: dto.lng,
+      placeId: dto.placeId,
     });
     await this.addressRepository.save(address);
 
@@ -145,6 +148,9 @@ export class AuthService {
     const address = this.addressRepository.create({
       user: savedUser,
       address: dto.officeAddress,
+      lat: dto.lat,
+      lng: dto.lng,
+      placeId: dto.placeId,
     });
     await this.addressRepository.save(address);
 

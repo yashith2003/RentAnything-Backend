@@ -23,6 +23,19 @@ export class RegisterIndividualDto {
   @IsString()
   @IsNotEmpty()
   address: string;
+
+  @ApiProperty({ example: 6.9271, required: false })
+  @IsOptional()
+  lat?: number;
+
+  @ApiProperty({ example: 79.8612, required: false })
+  @IsOptional()
+  lng?: number;
+
+  @ApiProperty({ example: 'place_id_123', required: false })
+  @IsString()
+  @IsOptional()
+  placeId?: string;
 }
 
 export class RegisterCompanyDto {
@@ -50,4 +63,17 @@ export class RegisterCompanyDto {
   @IsString()
   @IsNotEmpty()
   officeAddress: string;
+
+  @ApiProperty({ example: 6.9271, required: false })
+  @IsOptional()
+  lat?: number;
+
+  @ApiProperty({ example: 79.8612, required: false })
+  @IsOptional()
+  lng?: number;
+
+  @ApiProperty({ example: 'place_id_456', required: false })
+  @IsString()
+  @IsOptional()
+  placeId?: string;
 }
