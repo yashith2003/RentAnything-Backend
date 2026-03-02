@@ -12,7 +12,7 @@ export class ChatMessage {
   @Column({ name: 'thread_id' })
   threadId: number;
 
-  @ManyToOne(() => ChatThread, (thread) => thread.messages)
+  @ManyToOne(() => ChatThread, (thread) => thread.messages, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'thread_id' })
   thread: ChatThread;
 

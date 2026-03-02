@@ -71,6 +71,12 @@ export class ChatController {
     return this.chatService.bulkShareItem(req.user.id, threadIds, itemId);
   }
 
+  @Post('threads/delete')
+  @ApiOperation({ summary: 'Delete multiple chat threads for the current user' })
+  async deleteThreads(@Body('threadIds') threadIds: number[], @Req() req: any) {
+    return this.chatService.deleteThreads(req.user.id, threadIds);
+  }
+
   @Post('thread/:threadId/upload-attachments')
   @ApiOperation({ summary: 'Upload multiple chat attachments (images or PDFs)' })
   @ApiConsumes('multipart/form-data')

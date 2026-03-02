@@ -218,4 +218,21 @@ export class ChatService {
     }
     return results;
   }
+
+  async deleteThreads(userId: number, threadIds: number[]): Promise<void> {
+    // Verify each thread belongs to this user before deleting
+    // In a real app, we might want to soft-delete or only delete for THIS user,
+    // but the request is "delete the chat", which usually means the whole thread here.
+    for (const id of threadIds) {
+      const thread = await this.threadRepository.findOne({ where: { id } });
+      if (thread && (thread.userOneId === userId || thread.userTwoId === userId)) {
+        await this.threadRepository.delete(id);
+        // Clear caches
+        await this.cacheManager.del(`user_${thread.userOneId}_threads`);
+        await this.cacheManager.del(`user_${thread.userTwoId}_threads`);
+        await this.cacheManager.del(`thread_${id}_messages`);
+        await this.cacheManager.del(`thread_${id}_details`);
+      }
+    }
+  }
 }
