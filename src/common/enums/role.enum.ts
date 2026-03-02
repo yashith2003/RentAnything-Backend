@@ -4,4 +4,5 @@ export enum UserRole {
   INDIVIDUAL = 'individual',
   COMPANY = 'company',
   ADMIN = 'admin',
+  GUEST = 'guest',
 }

@@ -2,10 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CategoryService } from './category.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Category } from './entities/category.entity';
+import { FilterConfig } from './entities/filter-config.entity';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 describe('CategoryService', () => {
   let service: CategoryService;
   let repository;
+  let filterConfigRepository;
+  let cacheManager;
 
   const mockCategory = {
     id: 1,
@@ -16,6 +20,13 @@ describe('CategoryService', () => {
     create: jest.fn().mockReturnValue(mockCategory),
     save: jest.fn().mockResolvedValue(mockCategory),
     find: jest.fn().mockResolvedValue([mockCategory]),
+    findOne: jest.fn().mockResolvedValue(mockCategory),
+  };
+
+  const mockCacheManager = {
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn(),
+    del: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -26,11 +37,21 @@ describe('CategoryService', () => {
           provide: getRepositoryToken(Category),
           useValue: mockRepository,
         },
+        {
+          provide: getRepositoryToken(FilterConfig),
+          useValue: mockRepository,
+        },
+        {
+          provide: CACHE_MANAGER,
+          useValue: mockCacheManager,
+        },
       ],
     }).compile();
 
     service = module.get<CategoryService>(CategoryService);
     repository = module.get(getRepositoryToken(Category));
+    filterConfigRepository = module.get(getRepositoryToken(FilterConfig));
+    cacheManager = module.get(CACHE_MANAGER);
   });
 
   it('should be defined', () => {

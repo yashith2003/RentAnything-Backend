@@ -8,6 +8,7 @@ import { Address } from '../address/entities/address.entity';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -56,6 +57,12 @@ describe('AuthService', () => {
     }),
   };
 
+  const mockCacheManager = {
+    get: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -83,6 +90,10 @@ describe('AuthService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: CACHE_MANAGER,
+          useValue: mockCacheManager,
         },
       ],
     }).compile();
@@ -112,7 +123,7 @@ describe('AuthService', () => {
   describe('verifyOtp', () => {
     it('should return tokens if OTP is correct', async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser);
-      const result = await service.verifyOtp({ phone: mockUser.phone, otp: '1111' });
+      const result = await service.verifyOtp({ phone: mockUser.phone, otp: '111111' });
       
       expect(result).toHaveProperty('access_token');
       expect(result).toHaveProperty('refresh_token');

@@ -5,13 +5,13 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class VerifyOtpDto {
   @ApiProperty({ example: '+94771234567' })
-  @IsPhoneNumber()
+  @IsPhoneNumber('LK')
   @IsNotEmpty()
   phone: string;
 
-  @ApiProperty({ example: '1111' })
+  @ApiProperty({ example: '111111' })
   @IsString()
   @IsNotEmpty()
-  @Length(4, 4)
+  @Length(6, 6)
   otp: string;
 }

@@ -1,4 +1,4 @@
-//src/user/entities/company.entity.ts
+//RentAnything-Backend/src/user/entities/company.entity.ts
 
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, UpdateDateColumn } from 'typeorm';
 import { User } from './user.entity';
@@ -20,6 +20,15 @@ export class Company {
 
   @Column({ name: 'company_registration_number' })
   registrationNumber: string;
+
+  @Column({ name: 'address', nullable: true })
+  address: string;
+
+  @Column({ name: 'description', type: 'text', nullable: true })
+  description: string;
+
+  @Column({ name: 'location', nullable: true })
+  location: string;
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;

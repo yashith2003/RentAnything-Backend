@@ -18,6 +18,12 @@ export class ElectronicsDetails {
   @Column()
   model: string;
 
+  @Column({ nullable: true })
+  warranty: string;
+
+  @Column({ type: 'text', nullable: true })
+  specifications: string;
+
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

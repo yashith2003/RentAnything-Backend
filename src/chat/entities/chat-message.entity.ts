@@ -1,4 +1,4 @@
-//src/chat/entities/chat-message.entity.ts
+//RentAnything-Backend/src/chat/entities/chat-message.entity.ts
 
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, JoinColumn } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
@@ -9,9 +9,15 @@ export class ChatMessage {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => ChatThread, (thread) => thread.messages)
+  @Column({ name: 'thread_id' })
+  threadId: number;
+
+  @ManyToOne(() => ChatThread, (thread) => thread.messages, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'thread_id' })
   thread: ChatThread;
+
+  @Column({ name: 'sender_id' })
+  senderId: number;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'sender_id' })
@@ -19,6 +25,15 @@ export class ChatMessage {
 
   @Column({ type: 'text' })
   content: string;
+
+  @Column({ name: 'type', type: 'varchar', default: 'text' })
+  type: string;
+
+  @Column({ name: 'attachments', type: 'simple-array', nullable: true })
+  attachments: string[];
+
+  @Column({ name: 'attachment_names', type: 'simple-array', nullable: true })
+  attachmentNames: string[];
 
   @Column({ name: 'is_read', default: false })
   isRead: boolean;

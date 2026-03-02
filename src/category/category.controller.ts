@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -18,5 +18,10 @@ export class CategoryController {
   @ApiOperation({ summary: 'Get all categories' })
   findAll() {
     return this.categoryService.findAll();
+  }
+  @Get(':id/filters')
+  @ApiOperation({ summary: 'Get filters for a specific category' })
+  getFilters(@Param('id') id: string) {
+    return this.categoryService.findFilters(+id);
   }
 }

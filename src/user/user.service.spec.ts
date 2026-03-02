@@ -1,11 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UserService } from './user.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
+import { UserService } from './user.service';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 
 describe('UserService', () => {
   let service: UserService;
   let repository;
+  let cacheManager;
 
   const mockUser = {
     id: 1,
@@ -15,6 +17,16 @@ describe('UserService', () => {
 
   const mockRepository = {
     findOne: jest.fn().mockResolvedValue(mockUser),
+    save: jest.fn().mockResolvedValue(mockUser),
+    manager: {
+      save: jest.fn(),
+    },
+  };
+
+  const mockCacheManager = {
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn(),
+    del: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -25,11 +37,16 @@ describe('UserService', () => {
           provide: getRepositoryToken(User),
           useValue: mockRepository,
         },
+        {
+          provide: CACHE_MANAGER,
+          useValue: mockCacheManager,
+        },
       ],
     }).compile();
 
     service = module.get<UserService>(UserService);
     repository = module.get(getRepositoryToken(User));
+    cacheManager = module.get(CACHE_MANAGER);
   });
 
   it('should be defined', () => {

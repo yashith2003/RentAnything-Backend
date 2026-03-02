@@ -1,10 +1,13 @@
-//src/app.module.ts
+//RentAnything-Backend/src/app.module.ts
 
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { CommonModule } from './common/common.module';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 import redisConfig from './config/redis.config';
@@ -20,13 +23,18 @@ import { AddressModule } from './address/address.module';
 import { RentalModule } from './rental/rental.module';
 import { IncidentModule } from './incident/incident.module';
 import { ChatModule } from './chat/chat.module';
-
+import { KycModule } from './kyc/kyc.module';
+import { ReviewModule } from './review/review.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       load: [databaseConfig, jwtConfig, redisConfig],
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
     }),
     CacheModule.registerAsync({
       isGlobal: true,
@@ -64,6 +72,7 @@ import { ChatModule } from './chat/chat.module';
         synchronize: true, // Only for development
       }),
     }),
+    CommonModule,
     AuthModule,
     UserModule,
     CategoryModule,
@@ -74,6 +83,8 @@ import { ChatModule } from './chat/chat.module';
     ChatModule,
     RentalModule,
     IncidentModule,
+    KycModule,
+    ReviewModule,
   ],
 
   controllers: [AppController],

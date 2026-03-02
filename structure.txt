@@ -1,141 +1,233 @@
-ERD link: https://mermaid.ai/app/projects/991052aa-1d04-443f-b1af-f83a2db9f285/diagrams/dc89e4c9-be67-4161-9d45-9890ddf9ea86/share/invite/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkb2N1bWVudElEIjoiZGM4OWU0YzktYmU2Ny00MTYxLTlkNDUtOTg5MGRkZjllYTg2IiwiYWNjZXNzIjoiVmlldyIsImlhdCI6MTc2OTc2MTQ0NH0.0nnmVBC-yEjsiHAdCbYynO98BBuDD-z8gEqUuPpY-ZE ;
+ERD code: Moved to ERD_mermaid code.txt
 
-
-
-rent-anything-backend/
+RentAnything-Backend/
 │
 ├── src/
 │   ├── app.module.ts
 │   ├── app.controller.ts
 │   ├── app.service.ts
 │   ├── main.ts
-│
-│   ├── config/
-│   │   ├── database.config.ts
-│   │   ├── swagger.config.ts
-│   │   └── jwt.config.ts
-│
+│   │
+│   ├── address/
+│   │   ├── dto/
+│   │   │   └── create-address.dto.ts
+│   │   ├── entities/
+│   │   │   └── address.entity.ts
+│   │   ├── address.controller.spec.ts
+│   │   ├── address.controller.ts
+│   │   ├── address.module.ts
+│   │   ├── address.service.spec.ts
+│   │   └── address.service.ts
+│   │
+│   ├── auth/
+│   │   ├── dto/
+│   │   │   ├── check-email.dto.ts
+│   │   │   ├── login.dto.ts
+│   │   │   ├── refresh-token.dto.ts
+│   │   │   ├── register.dto.ts
+│   │   │   └── verify-otp.dto.ts
+│   │   ├── strategies/
+│   │   │   └── jwt.strategy.ts
+│   │   ├── auth.controller.ts
+│   │   ├── auth.module.ts
+│   │   ├── auth.service.spec.ts
+│   │   └── auth.service.ts
+│   │
+│   ├── availability/
+│   │   ├── dto/
+│   │   │   └── create-availability.dto.ts
+│   │   ├── entities/
+│   │   │   └── availability.entity.ts
+│   │   ├── availability.controller.spec.ts
+│   │   ├── availability.controller.ts
+│   │   ├── availability.module.ts
+│   │   ├── availability.service.spec.ts
+│   │   └── availability.service.ts
+│   │
+│   ├── category/
+│   │   ├── dto/
+│   │   │   └── create-category.dto.ts
+│   │   ├── entities/
+│   │   │   ├── category.entity.ts
+│   │   │   └── filter-config.entity.ts
+│   │   ├── category.controller.spec.ts
+│   │   ├── category.controller.ts
+│   │   ├── category.module.ts
+│   │   ├── category.service.spec.ts
+│   │   └── category.service.ts
+│   │
+│   ├── chat/
+│   │   ├── entities/
+│   │   │   ├── chat-message.entity.ts
+│   │   │   └── chat-thread.entity.ts
+│   │   ├── chat.controller.spec.ts
+│   │   ├── chat.controller.ts
+│   │   ├── chat.gateway.ts
+│   │   ├── chat.module.ts
+│   │   ├── chat.service.spec.ts
+│   │   └── chat.service.ts
+│   │
 │   ├── common/
+│   │   ├── adapters/
+│   │   │   └── redis-io.adapter.ts
 │   │   ├── decorators/
 │   │   │   ├── roles.decorator.ts
 │   │   │   └── user.decorator.ts
+│   │   ├── enums/
+│   │   │   ├── role.enum.ts
+│   │   │   └── status.enum.ts
+│   │   ├── filters/
+│   │   │   └── http-exception.filter.ts
 │   │   ├── guards/
 │   │   │   ├── jwt-auth.guard.ts
 │   │   │   └── roles.guard.ts
-│   │   ├── enums/
-│   │   │   ├── role.enum.ts
-│   │   │   ├── status.enum.ts
 │   │   ├── interceptors/
-│   │   └── filters/
-│
-│   ├── auth/
+│   │   │   └── transform.interceptor.ts
+│   │   └── pipes/
+│   │       └── zod-validation.pipe.ts
+│   │
+│   ├── config/
+│   │   ├── database.config.ts
+│   │   ├── jwt.config.ts
+│   │   ├── redis.config.ts
+│   │   └── swagger.config.ts
+│   │
+│   ├── incident/
 │   │   ├── dto/
-│   │   │   ├── login.dto.ts
-│   │   │   ├── register.dto.ts
-│   │   │   └── refresh-token.dto.ts
-│   │   ├── strategies/
-│   │   │   ├── jwt.strategy.ts
-│   │   │   └── local.strategy.ts
-│   │   ├── auth.controller.ts
-│   │   ├── auth.service.ts
-│   │   └── auth.module.ts
-│
-│   ├── user/
-│   │   ├── dto/
-│   │   │   ├── create-user.dto.ts
-│   │   │   └── update-user.dto.ts
+│   │   │   └── create-incident.dto.ts
 │   │   ├── entities/
-│   │   │   ├── user.entity.ts
-│   │   │   ├── individual-user.entity.ts
-│   │   │   └── company.entity.ts
-│   │   ├── user.controller.ts
-│   │   ├── user.service.ts
-│   │   └── user.module.ts
-│
-│   ├── address/
-│   │   ├── entities/address.entity.ts
-│   │   ├── address.controller.ts
-│   │   ├── address.service.ts
-│   │   └── address.module.ts
-│
-│   ├── category/
-│   │   ├── entities/category.entity.ts
-│   │   ├── category.controller.ts
-│   │   ├── category.service.ts
-│   │   └── category.module.ts
-│
+│   │   │   ├── incident-media.entity.ts
+│   │   │   └── incident-report.entity.ts
+│   │   ├── incident.controller.spec.ts
+│   │   ├── incident.controller.ts
+│   │   ├── incident.module.ts
+│   │   ├── incident.service.spec.ts
+│   │   └── incident.service.ts
+│   │
 │   ├── item/
 │   │   ├── dto/
+│   │   │   ├── create-electronics-details.dto.ts
+│   │   │   ├── create-fashion-details.dto.ts
+│   │   │   ├── create-home-details.dto.ts
 │   │   │   ├── create-item.dto.ts
+│   │   │   ├── create-sports-details.dto.ts
+│   │   │   ├── create-vehicle-details.dto.ts
+│   │   │   ├── filter-items.schema.ts
 │   │   │   └── update-item.dto.ts
 │   │   ├── entities/
-│   │   │   ├── item.entity.ts
-│   │   │   ├── vehicle-details.entity.ts
 │   │   │   ├── electronics-details.entity.ts
+│   │   │   ├── fashion-details.entity.ts
 │   │   │   ├── home-details.entity.ts
+│   │   │   ├── item-interaction.entity.ts
+│   │   │   ├── item.entity.ts
+│   │   │   ├── saved-item.entity.ts
 │   │   │   ├── sports-details.entity.ts
-│   │   │   └── fashion-details.entity.ts
+│   │   │   └── vehicle-details.entity.ts
+│   │   ├── services/
+│   │   │   └── item-search.service.ts
+│   │   ├── item.controller.spec.ts
 │   │   ├── item.controller.ts
+│   │   ├── item.module.ts
+│   │   ├── item.service.spec.ts
 │   │   ├── item.service.ts
-│   │   └── item.module.ts
-│
+│   │   ├── saved-item.controller.ts
+│   │   └── saved-item.service.ts
+│   │
+│   ├── kyc/
+│   │   ├── entities/
+│   │   │   ├── kyc-document.entity.ts
+│   │   │   └── kyc-submission.entity.ts
+│   │   ├── enums/
+│   │   │   └── kyc.enums.ts
+│   │   ├── kyc.controller.ts
+│   │   ├── kyc.module.ts
+│   │   └── kyc.service.ts
+│   │
+│   ├── notification/
+│   │   ├── entities/
+│   │   │   └── notification.entity.ts
+│   │   ├── notification.controller.ts
+│   │   ├── notification.module.ts
+│   │   └── notification.service.ts
+│   │
+│   ├── payment/
+│   │   ├── entities/
+│   │   │   └── payment.entity.ts
+│   │   ├── payment.controller.ts
+│   │   ├── payment.module.ts
+│   │   └── payment.service.ts
+│   │
+│   ├── pricing/
+│   │   ├── dto/
+│   │   │   └── create-pricing.dto.ts
+│   │   ├── entities/
+│   │   │   └── item-pricing.entity.ts
+│   │   ├── pricing.controller.spec.ts
+│   │   ├── pricing.controller.ts
+│   │   ├── pricing.module.ts
+│   │   ├── pricing.service.spec.ts
+│   │   └── pricing.service.ts
+│   │
 │   ├── rental/
 │   │   ├── dto/
 │   │   ├── entities/
+│   │   │   ├── rental-extention.entity.ts
 │   │   │   ├── rental-request.entity.ts
-│   │   │   ├── rental.entity.ts
-│   │   │   └── rental-extension.entity.ts
+│   │   │   └── rental.entity.ts
+│   │   ├── rental.controller.spec.ts
 │   │   ├── rental.controller.ts
-│   │   ├── rental.service.ts
-│   │   └── rental.module.ts
-│
-│   ├── pricing/
-│   │   ├── entities/item-pricing.entity.ts
-│   │   ├── pricing.controller.ts
-│   │   ├── pricing.service.ts
-│   │   └── pricing.module.ts
-│
-│   ├── payment/
-│   │   ├── entities/payment.entity.ts
-│   │   ├── payment.controller.ts
-│   │   ├── payment.service.ts
-│   │   └── payment.module.ts
-│
+│   │   ├── rental.module.ts
+│   │   ├── rental.service.spec.ts
+│   │   └── rental.service.ts
+│   │
 │   ├── review/
-│   │   ├── entities/review.entity.ts
+│   │   ├── dto/
+│   │   │   └── create-review.dto.ts
+│   │   ├── entities/
+│   │   │   └── review.entity.ts
 │   │   ├── review.controller.ts
-│   │   ├── review.service.ts
-│   │   └── review.module.ts
+│   │   ├── review.module.ts
+│   │   └── review.service.ts
+│   │
+│   └── user/
+│       ├── dto/
+│       │   ├── create-user.dto.ts
+│       │   └── update-user.dto.ts
+│       ├── entities/
+│       │   ├── company.entity.ts
+│       │   ├── individual-user.entity.ts
+│       │   └── user.entity.ts
+│       ├── user.controller.spec.ts
+│       ├── user.controller.ts
+│       ├── user.module.ts
+│       ├── user.service.spec.ts
+│       └── user.service.ts
 │
+├── uploads/
 │   ├── chat/
-│   │   ├── entities/
-│   │   │   ├── chat-thread.entity.ts
-│   │   │   └── chat-message.entity.ts
-│   │   ├── chat.controller.ts
-│   │   ├── chat.service.ts
-│   │   └── chat.module.ts
+│   ├── dp/
+│   ├── items/
+│   └── kyc/
 │
-│   ├── incident/
-│   │   ├── entities/
-│   │   │   ├── incident-report.entity.ts
-│   │   │   └── incident-media.entity.ts
-│   │   ├── incident.controller.ts
-│   │   ├── incident.service.ts
-│   │   └── incident.module.ts
+├── test/
+│   ├── app.e2e-spec.ts
+│   └── jest-e2e.json
 │
-│   ├── notification/
-│   │   ├── entities/notification.entity.ts
-│   │   ├── notification.controller.ts
-│   │   ├── notification.service.ts
-│   │   └── notification.module.ts
-│
-│   └── availability/
-│       ├── entities/availability.entity.ts
-│       ├── availability.controller.ts
-│       ├── availability.service.ts
-│       └── availability.module.ts
+├── scripts/
 │
 ├── .env
-├── ormconfig.ts
+├── .gitignore
+├── .prettierrc
+├── ERD_mermaid code.txt
+├── README.md
+├── api_testing.http
+├── check-images.js
+├── check_db.js
+├── check_items.ts
+├── create-db.js
+├── eslint.config.mjs
+├── nest-cli.json
 ├── package.json
-└── tsconfig.json
+├── tsconfig.build.json
+├── tsconfig.json
+└── structure.txt

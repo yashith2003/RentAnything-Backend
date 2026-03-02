@@ -7,11 +7,21 @@ import { RegisterIndividualDto, RegisterCompanyDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { CheckEmailDto } from './dto/check-email.dto';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Post('check-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Check if email is available' })
+  @ApiResponse({ status: 200, description: 'Email is available' })
+  @ApiResponse({ status: 409, description: 'Email already registered' })
+  async checkEmail(@Body() dto: CheckEmailDto) {
+    return this.authService.checkEmail(dto);
+  }
 
   @Post('register/individual')
   @ApiOperation({ summary: 'Register a new individual user' })
@@ -35,6 +45,14 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @Post('resend-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend OTP to phone number' })
+  @ApiResponse({ status: 200, description: 'OTP resent successfully' })
+  async resendOtp(@Body() dto: { phone: string }) {
+    return this.authService.resendOtp(dto.phone);
+  }
+
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify OTP and get JWT token' })
@@ -49,5 +67,13 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
   async refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshToken(dto);
+  }
+
+  @Post('login-guest')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login as a guest' })
+  @ApiResponse({ status: 200, description: 'Guest login successful' })
+  async loginGuest() {
+    return this.authService.loginGuest();
   }
 }

@@ -1,3 +1,5 @@
+//RentAnything-Backend/src/chat/chat.service.spec.ts
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { ChatService } from './chat.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -30,6 +32,8 @@ describe('ChatService', () => {
             create: jest.fn().mockReturnValue(mockThread),
             save: jest.fn().mockResolvedValue(mockThread),
             find: jest.fn().mockResolvedValue([mockThread]),
+            findOne: jest.fn().mockResolvedValue(mockThread),
+            update: jest.fn().mockResolvedValue({}),
           },
         },
         {
@@ -38,6 +42,8 @@ describe('ChatService', () => {
             create: jest.fn().mockReturnValue(mockMessage),
             save: jest.fn().mockResolvedValue(mockMessage),
             find: jest.fn().mockResolvedValue([mockMessage]),
+            findOne: jest.fn().mockResolvedValue(mockMessage),
+            count: jest.fn().mockResolvedValue(0),
           },
         },
         {
@@ -59,6 +65,7 @@ describe('ChatService', () => {
 
   describe('createThread', () => {
     it('should create a chat thread', async () => {
+      threadRepository.findOne.mockResolvedValue(null);
       const result = await service.createThread(1, 1, 2);
       expect(result).toEqual(mockThread);
       expect(threadRepository.create).toHaveBeenCalled();
@@ -92,7 +99,7 @@ describe('ChatService', () => {
   describe('getUserThreads', () => {
     it('should return all threads for a user', async () => {
       const result = await service.getUserThreads(1);
-      expect(result).toEqual([mockThread]);
+      expect(result).toEqual([{ ...mockThread, unreadCount: 0 }]);
     });
   });
 });

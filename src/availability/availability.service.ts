@@ -1,34 +1,35 @@
 //src/availability/availability.service.ts
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Availability } from './entities/availability.entity';
-
-import { CreateAvailabilityDto } from './dto/create-availability.dto';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 
 @Injectable()
 export class AvailabilityService {
   constructor(
     @InjectRepository(Availability)
     private availabilityRepository: Repository<Availability>,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  async create(dto: CreateAvailabilityDto) {
-    const startDate = new Date(dto.fromDate);
-    const endDate = new Date(dto.toDate);
-    const availabilities: Availability[] = [];
+  async getByItemId(itemId: number): Promise<Availability[]> {
+    const cacheKey = `availability_item_${itemId}`;
+    const cached = await this.cacheManager.get<Availability[]>(cacheKey);
+    if (cached) return cached;
 
-    // Create a entry for each day in the range
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      const availability = this.availabilityRepository.create({
-        availableDate: d.toISOString().split('T')[0],
-        item: { id: dto.itemId } as any,
-        isAvailable: true,
-      });
-      availabilities.push(availability);
-    }
-    
-    return this.availabilityRepository.save(availabilities);
+    const records = await this.availabilityRepository.find({
+      where: { item: { id: itemId } },
+      order: { availableDate: 'ASC' },
+    });
+
+    await this.cacheManager.set(cacheKey, records, 300000); // 5 min TTL
+    return records;
+  }
+
+  async invalidateCache(itemId: number): Promise<void> {
+    await this.cacheManager.del(`availability_item_${itemId}`);
   }
 }

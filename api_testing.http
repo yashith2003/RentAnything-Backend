@@ -9,7 +9,15 @@
 ### AUTHENTICATION
 ### ------------------------------------------------------------------------
 
-### 1. Register Individual User
+### 1. Check Email Availability
+POST {{baseUrl}}/auth/check-email
+Content-Type: application/json
+
+{
+  "email": "{{email}}"
+}
+
+### 2. Register Individual User
 POST {{baseUrl}}/auth/register/individual
 Content-Type: application/json
 
@@ -20,7 +28,7 @@ Content-Type: application/json
   "address": "123 Main St, Colombo"
 }
 
-### 2. Register Company User
+### 3. Register Company User
 POST {{baseUrl}}/auth/register/company
 Content-Type: application/json
 
@@ -32,7 +40,7 @@ Content-Type: application/json
   "officeAddress": "456 Business Ave, Colombo"
 }
 
-### 3. Login (Triggers OTP)
+### 4. Login (Triggers OTP)
 # @name login
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
@@ -41,7 +49,7 @@ Content-Type: application/json
   "phone": "{{phone}}"
 }
 
-### 4. Verify OTP (Get JWT Token)
+### 5. Verify OTP (Get JWT Token)
 # @name verifyOtp
 POST {{baseUrl}}/auth/verify-otp
 Content-Type: application/json
@@ -55,7 +63,7 @@ Content-Type: application/json
 @accessToken = {{verifyOtp.response.body.data.access_token}}
 @refreshToken = {{verifyOtp.response.body.data.refresh_token}}
 
-### 5. Refresh Token
+### 6. Refresh Token
 POST {{baseUrl}}/auth/refresh
 Content-Type: application/json
 
@@ -64,14 +72,44 @@ Content-Type: application/json
 }
 
 ### ------------------------------------------------------------------------
-### USER & ADDRESS
+### USER
 ### ------------------------------------------------------------------------
 
-### 6. Get User Profile
+### 7. Get Current User Profile
 GET {{baseUrl}}/user/profile
 Authorization: Bearer {{accessToken}}
 
-### 7. Create Address
+### 8. Get Public User Profile
+GET {{baseUrl}}/user/1/public
+
+### 9. Update User Profile
+PUT {{baseUrl}}/user/profile
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "fullName": "John Updated",
+  "description": "Experienced renter",
+  "location": "Colombo, SL"
+}
+
+### 10. Upload Profile Picture
+POST {{baseUrl}}/user/upload-dp
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="avatar.jpg"
+Content-Type: image/jpeg
+
+< ./test-assets/avatar.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ------------------------------------------------------------------------
+### ADDRESS
+### ------------------------------------------------------------------------
+
+### 11. Create Address
 POST {{baseUrl}}/addresses
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
@@ -80,15 +118,42 @@ Content-Type: application/json
   "address": "No 45, Galle Road, Colombo"
 }
 
-### 8. Get All Addresses
+### 12. Get User Addresses
 GET {{baseUrl}}/addresses
+Authorization: Bearer {{accessToken}}
+
+### 13. Search Address (Nominatim)
+GET {{baseUrl}}/addresses/search?q=Colombo
+
+### ------------------------------------------------------------------------
+### KYC
+### ------------------------------------------------------------------------
+
+### 14. Get KYC Status
+GET {{baseUrl}}/kyc/status
+Authorization: Bearer {{accessToken}}
+
+### 15. Upload KYC Document (NIC_FRONT, NIC_BACK, SELFIE, etc.)
+POST {{baseUrl}}/kyc/upload/NIC_FRONT
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="nic.jpg"
+Content-Type: image/jpeg
+
+< ./test-assets/nic.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 16. Get KYC Document Details
+GET {{baseUrl}}/kyc/document/NIC_FRONT
 Authorization: Bearer {{accessToken}}
 
 ### ------------------------------------------------------------------------
 ### CATEGORY
 ### ------------------------------------------------------------------------
 
-### 9. Create Category
+### 17. Create Category
 POST {{baseUrl}}/categories
 Content-Type: application/json
 
@@ -96,10 +161,13 @@ Content-Type: application/json
   "name": "Vehicles"
 }
 
-### 10. Get All Categories
+### 18. Get All Categories
 GET {{baseUrl}}/categories
 
-### 11. Create Sub-Category
+### 19. Get Category Filters
+GET {{baseUrl}}/categories/1/filters
+
+### 20. Create Sub-Category
 POST {{baseUrl}}/categories
 Content-Type: application/json
 
@@ -112,7 +180,7 @@ Content-Type: application/json
 ### ITEMS
 ### ------------------------------------------------------------------------
 
-### 12. Create Item
+### 21. Create Item
 # @name createItem
 POST {{baseUrl}}/items
 Authorization: Bearer {{accessToken}}
@@ -126,18 +194,76 @@ Content-Type: application/json
   "condition": "Excellent",
   "status": "available",
   "deliveryAvailable": true,
-  "pickupAvailable": true
+  "pickupAvailable": true,
+  "rateType": "daily",
+  "price": 1500,
+  "vehicleDetails": {
+    "vehicleNumber": "WP-CBA-1234",
+    "vehicleType": "Car",
+    "seatingCapacity": 5,
+    "fuelType": "Petrol"
+  }
 }
 
 @itemId = {{createItem.response.body.data.id}}
 
-### 14. Get All Items by Category
-GET {{baseUrl}}/items?cat=1
+### 22. Upload Item Image (Draft/New Item)
+POST {{baseUrl}}/items/upload
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
 
-### 15. Get Specific Item
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="bike.jpg"
+Content-Type: image/jpeg
+
+< ./test-assets/bike.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 23. Upload Image for Existing Item
+POST {{baseUrl}}/items/{{itemId}}/upload-image
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="bike_detail.jpg"
+Content-Type: image/jpeg
+
+< ./test-assets/bike_detail.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 24. Get All Items (with filters)
+GET {{baseUrl}}/items?cat=1&minPrice=100&maxPrice=5000
+
+### 25. Get Items for Map
+GET {{baseUrl}}/items/map?neLat=7.0&neLng=80.0&swLat=6.8&swLng=79.8
+
+### 26. Get Trending Items
+GET {{baseUrl}}/items/trending?cat=1
+
+### 27. Get My Items
+GET {{baseUrl}}/items/my-items
+Authorization: Bearer {{accessToken}}
+
+### 28. Get My Items with Review Stats
+GET {{baseUrl}}/items/my-items/reviews
+Authorization: Bearer {{accessToken}}
+
+### 29. Get Items by Owner
+GET {{baseUrl}}/items/owner/1
+
+### 30. Get Specific Item
 GET {{baseUrl}}/items/{{itemId}}
 
-### 16. Update Item
+### 31. Record Interaction (VIEW, CALL, CHAT)
+POST {{baseUrl}}/items/{{itemId}}/interact
+X-Session-Id: test-session-123
+Content-Type: application/json
+
+{
+  "type": "VIEW"
+}
+
+### 32. Update Item
 PATCH {{baseUrl}}/items/{{itemId}}
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
@@ -147,15 +273,31 @@ Content-Type: application/json
   "condition": "Good"
 }
 
-### 17. Delete Item
+### 33. Delete Item
 DELETE {{baseUrl}}/items/{{itemId}}
+Authorization: Bearer {{accessToken}}
+
+### ------------------------------------------------------------------------
+### SAVED ITEMS
+### ------------------------------------------------------------------------
+
+### 34. Toggle Save Item
+POST {{baseUrl}}/items/saved/{{itemId}}/toggle
+Authorization: Bearer {{accessToken}}
+
+### 35. Get All Saved Items
+GET {{baseUrl}}/items/saved
+Authorization: Bearer {{accessToken}}
+
+### 36. Check if Item is Saved
+GET {{baseUrl}}/items/saved/{{itemId}}/check
 Authorization: Bearer {{accessToken}}
 
 ### ------------------------------------------------------------------------
 ### PRICING & AVAILABILITY
 ### ------------------------------------------------------------------------
 
-### 18. Set Item Pricing
+### 37. Set Item Pricing
 POST {{baseUrl}}/pricing
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
@@ -166,7 +308,10 @@ Content-Type: application/json
   "price": 1000
 }
 
-### 19. Set Item Availability
+### 38. Get Availability for Item
+GET {{baseUrl}}/availability/item/{{itemId}}
+
+### 39. Set Item Availability (Internal/Logic check)
 POST {{baseUrl}}/availability
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
@@ -181,15 +326,40 @@ Content-Type: application/json
 ### RENTALS
 ### ------------------------------------------------------------------------
 
-### 20. Get All Rentals
+### 40. Get All Rentals
 GET {{baseUrl}}/rentals
+Authorization: Bearer {{accessToken}}
+
+### ------------------------------------------------------------------------
+### REVIEWS
+### ------------------------------------------------------------------------
+
+### 41. Create Review
+POST {{baseUrl}}/reviews
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "itemId": 1,
+  "rating": 5,
+  "feedback": "Great experience!"
+}
+
+### 42. Get Reviews for Item
+GET {{baseUrl}}/reviews/item/1?page=1&limit=10
+
+### 43. Get Reviews for User
+GET {{baseUrl}}/reviews/user/1?page=1&limit=10
+
+### 44. Get My Review for Item
+GET {{baseUrl}}/reviews/item/1/my-review
 Authorization: Bearer {{accessToken}}
 
 ### ------------------------------------------------------------------------
 ### INCIDENTS
 ### ------------------------------------------------------------------------
 
-### 21. Create Incident Report
+### 45. Create Incident Report
 POST {{baseUrl}}/incidents
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
@@ -205,11 +375,11 @@ Content-Type: application/json
   ]
 }
 
-### 22. Get All Incidents
+### 46. Get All Incidents
 GET {{baseUrl}}/incidents
 Authorization: Bearer {{accessToken}}
 
-### 23. Get Specific Incident
+### 47. Get Specific Incident
 GET {{baseUrl}}/incidents/1
 Authorization: Bearer {{accessToken}}
 
@@ -217,18 +387,49 @@ Authorization: Bearer {{accessToken}}
 ### CHAT
 ### ------------------------------------------------------------------------
 
-### 24. Create Chat Thread
-# Requires valid itemId (from another user) and sellerId
-@sellerId = 2
+@otherUserId = 2
+
+### 48. Create Chat Thread
 POST {{baseUrl}}/chat/thread
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
   "itemId": 1,
-  "sellerId": {{sellerId}}
+  "otherUserId": {{otherUserId}}
 }
 
-### 25. Get Thread Messages
+### 49. Get All My Threads
+GET {{baseUrl}}/chat/threads
+Authorization: Bearer {{accessToken}}
+
+### 50. Get Thread Details
+GET {{baseUrl}}/chat/thread/1
+Authorization: Bearer {{accessToken}}
+
+### 51. Get Thread Messages
 GET {{baseUrl}}/chat/thread/1/messages
 Authorization: Bearer {{accessToken}}
+
+### 52. Mark Thread as Read
+POST {{baseUrl}}/chat/thread/1/read
+Authorization: Bearer {{accessToken}}
+
+### 53. Upload Chat Attachments
+POST {{baseUrl}}/chat/thread/1/upload-attachments
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="files"; filename="attachment.jpg"
+Content-Type: image/jpeg
+
+< ./test-assets/attachment.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ------------------------------------------------------------------------
+### APP
+### ------------------------------------------------------------------------
+
+### 54. Health Check
+GET {{baseUrl}}/

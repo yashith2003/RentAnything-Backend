@@ -1,14 +1,17 @@
-//src/user/entities/user.entity.ts
+//RentAnything-Backend/src/user/entities/user.entity.ts
 
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { IndividualUser } from './individual-user.entity';
 import { Company } from './company.entity';
 import { Address } from '../../address/entities/address.entity';
+import { KycSubmission } from '../../kyc/entities/kyc-submission.entity';
+import { Review } from '../../review/entities/review.entity';
 
 export enum UserRole {
   INDIVIDUAL = 'individual',
   COMPANY = 'company',
   ADMIN = 'admin',
+  GUEST = 'guest',
 }
 
 @Entity('users')
@@ -52,4 +55,10 @@ export class User {
 
   @OneToMany(() => Address, (address) => address.user, { cascade: true })
   addresses: Address[];
+
+  @OneToMany(() => Review, (review) => review.reviewer)
+  reviewsGiven: Review[];
+
+  @OneToMany(() => Review, (review) => review.owner)
+  reviewsReceived: Review[];
 }

@@ -6,7 +6,12 @@ import { User } from '../user/entities/user.entity';
 import { Category } from '../category/entities/category.entity';
 import { Address } from '../address/entities/address.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { ItemPricing } from '../pricing/entities/item-pricing.entity';
+import { Availability } from '../availability/entities/availability.entity';
+import { CategoryDetailsService } from './services/category-details.service';
 import { NotFoundException } from '@nestjs/common';
+import { ItemInteraction } from './entities/item-interaction.entity';
+import { Review } from '../review/entities/review.entity';
 
 describe('ItemService', () => {
   let service: ItemService;
@@ -18,7 +23,10 @@ describe('ItemService', () => {
     title: 'Test Item',
     description: 'Description',
     category: { id: 1 },
-    owner: { id: 1 },
+    owner: { id: 1, totalListings: 0 },
+    averageRating: 0,
+    reviewCount: 0,
+    categoryDetails: undefined,
   };
 
   const mockRepository = {
@@ -26,13 +34,48 @@ describe('ItemService', () => {
     save: jest.fn().mockResolvedValue(mockItem),
     find: jest.fn().mockResolvedValue([mockItem]),
     findOne: jest.fn().mockResolvedValue(mockItem),
+    count: jest.fn().mockResolvedValue(0),
     remove: jest.fn().mockResolvedValue(mockItem),
+    createQueryBuilder: jest.fn().mockReturnValue({
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      addGroupBy: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      offset: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([mockItem]),
+      getRawMany: jest.fn().mockResolvedValue([{}]),
+      getRawAndEntities: jest.fn().mockResolvedValue({
+        entities: [mockItem],
+        raw: [{}],
+      }),
+    }),
   };
 
   const mockCacheManager = {
     get: jest.fn(),
     set: jest.fn(),
     del: jest.fn(),
+    store: {
+      keys: jest.fn().mockResolvedValue([]),
+    },
+  };
+
+  const mockCategoryDetailsService = {
+    saveVehicleDetails: jest.fn(),
+    saveElectronicsDetails: jest.fn(),
+    saveHomeDetails: jest.fn(),
+    saveFashionDetails: jest.fn(),
+    saveSportsDetails: jest.fn(),
+    getCategoryDetails: jest.fn(),
+    deleteCategoryDetails: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -49,11 +92,34 @@ describe('ItemService', () => {
         },
         {
           provide: getRepositoryToken(Category),
-          useValue: mockRepository,
+          useValue: {
+            ...mockRepository,
+            query: jest.fn().mockResolvedValue([{ id: 1 }]),
+          },
         },
         {
           provide: getRepositoryToken(Address),
           useValue: mockRepository,
+        },
+        {
+          provide: getRepositoryToken(ItemPricing),
+          useValue: mockRepository,
+        },
+        {
+          provide: getRepositoryToken(Availability),
+          useValue: mockRepository,
+        },
+        {
+          provide: getRepositoryToken(ItemInteraction),
+          useValue: mockRepository,
+        },
+        {
+          provide: getRepositoryToken(Review),
+          useValue: mockRepository,
+        },
+        {
+          provide: CategoryDetailsService,
+          useValue: mockCategoryDetailsService,
         },
         {
           provide: CACHE_MANAGER,
@@ -86,7 +152,7 @@ describe('ItemService', () => {
       mockCacheManager.get.mockResolvedValue([mockItem]);
       const result = await service.findAll();
       expect(result).toEqual([mockItem]);
-      expect(mockCacheManager.get).toHaveBeenCalledWith('all_items');
+      expect(mockCacheManager.get).toHaveBeenCalledWith('items:list:all:{}');
     });
 
     it('should fetch from repo and set cache if not in cache', async () => {
