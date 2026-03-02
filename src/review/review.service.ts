@@ -22,7 +22,11 @@ export class ReviewService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  async create(reviewerId: number, createReviewDto: CreateReviewDto) {
+  async create(reviewerId: number | string, createReviewDto: CreateReviewDto) {
+    if (typeof reviewerId === 'string' && reviewerId.startsWith('guest')) {
+      throw new BadRequestException('Guests cannot leave reviews. Please signup.');
+    }
+    const numericReviewerId = Number(reviewerId);
     const { itemId, rating, feedback } = createReviewDto;
 
     const item = await this.itemRepository.findOne({
@@ -34,7 +38,7 @@ export class ReviewService {
       throw new BadRequestException('Item not found');
     }
 
-    if (item.owner.id === reviewerId) {
+    if (item.owner.id === numericReviewerId) {
        throw new BadRequestException('You cannot review your own item');
     }
 
@@ -45,7 +49,7 @@ export class ReviewService {
     console.log(`[ReviewService] Attempting upsert: reviewerId=${reviewerId}, itemId=${itemId}, ownerId=${item.owner.id}`);
 
     let review = await this.reviewRepository.findOne({
-      where: { reviewerId, itemId },
+      where: { reviewerId: numericReviewerId, itemId },
     });
 
     if (review) {
@@ -57,7 +61,7 @@ export class ReviewService {
       review = this.reviewRepository.create({
         rating,
         feedback,
-        reviewerId,
+        reviewerId: numericReviewerId,
         itemId,
         ownerId: item.owner.id,
       });
@@ -155,8 +159,17 @@ export class ReviewService {
     return result;
   }
 
-  async getUserReviews(userId: number, page: number = 1, limit: number = 10) {
-    const cacheKey = `user:${userId}:reviews:page:${page}:limit:${limit}`;
+  async getUserReviews(userId: number | string, page: number = 1, limit: number = 10) {
+    if (typeof userId === 'string' && userId.startsWith('guest')) {
+      return {
+        totalReviews: 0,
+        averageRating: 0,
+        starCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+        reviews: [],
+      };
+    }
+    const numericUserId = Number(userId);
+    const cacheKey = `user:${numericUserId}:reviews:page:${page}:limit:${limit}`;
     const cachedData = await this.cacheManager.get(cacheKey);
     if (cachedData) {
       return cachedData;
@@ -166,16 +179,16 @@ export class ReviewService {
       .createQueryBuilder('review')
       .select('COUNT(review.id)', 'totalReviews')
       .addSelect('AVG(review.rating)', 'averageRating')
-      .where('review.ownerId = :userId', { userId })
+      .where('review.ownerId = :userId', { userId: numericUserId })
       .getRawOne();
     
-    console.log(`[ReviewService] Raw user stats for owner ${userId}:`, stats);
+    console.log(`[ReviewService] Raw user stats for owner ${numericUserId}:`, stats);
 
     const starCountsRaw = await this.reviewRepository
       .createQueryBuilder('review')
       .select('review.rating', 'rating')
       .addSelect('COUNT(review.id)', 'count')
-      .where('review.ownerId = :userId', { userId })
+      .where('review.ownerId = :userId', { userId: numericUserId })
       .groupBy('review.rating')
       .getRawMany();
 
@@ -193,8 +206,8 @@ export class ReviewService {
 
     const [reviews, _] = await this.reviewRepository.findAndCount({
       where: [
-        { ownerId: userId, feedback: Not(IsNull()) },
-        { ownerId: userId, feedback: Not('') }
+        { ownerId: numericUserId, feedback: Not(IsNull()) },
+        { ownerId: numericUserId, feedback: Not('') }
       ],
       relations: ['reviewer', 'reviewer.individualUser', 'reviewer.company', 'item'],
       order: { createdAt: 'DESC' },
@@ -222,7 +235,7 @@ export class ReviewService {
       reviews: formattedReviews,
     };
 
-    console.log(`[ReviewService] Final response for owner ${userId}:`, {
+    console.log(`[ReviewService] Final response for owner ${numericUserId}:`, {
       total: result.totalReviews,
       avg: result.averageRating,
       count: result.reviews.length
@@ -232,9 +245,13 @@ export class ReviewService {
     return result;
   }
 
-  async getMyReviewForItem(userId: number, itemId: number) {
+  async getMyReviewForItem(userId: number | string, itemId: number) {
+    if (typeof userId === 'string' && userId.startsWith('guest')) {
+      return null;
+    }
+    const numericUserId = Number(userId);
     const review = await this.reviewRepository.findOne({
-      where: { reviewerId: userId, itemId },
+      where: { reviewerId: numericUserId, itemId },
     });
 
     if (!review) return null;

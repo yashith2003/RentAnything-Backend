@@ -1,6 +1,6 @@
 //RentAnything-Backend/src/item/item.service.ts
 
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Item } from './entities/item.entity';
@@ -34,13 +34,37 @@ export class ItemService {
     @Inject(CACHE_MANAGER) private cacheManager: cacheManager.Cache,
   ) {}
 
-  async create(dto: CreateItemDto, ownerId: number) {
+  private sortObjectKeys(obj: any): any {
+    if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+    return Object.keys(obj)
+      .sort()
+      .reduce((result, key) => {
+        result[key] = this.sortObjectKeys(obj[key]);
+        return result;
+      }, {});
+  }
+
+  private async clearItemsCache() {
+    // Basic clearing, ideally more specific
+    // For cache-manager v5+, store might be accessed differently or use stores
+    const keys = await (this.cacheManager as any).store.keys('items:*');
+    for (const key of keys) {
+      await this.cacheManager.del(key);
+    }
+  }
+
+  async create(dto: CreateItemDto, ownerId: number | string) {
+    if (typeof ownerId === 'string' && ownerId.startsWith('guest')) {
+      throw new UnauthorizedException('Guests cannot create listings. Please signup.');
+    }
+
+    const numericOwnerId = Number(ownerId);
     try {
-      console.log(`[ItemService] Creating item: ${dto.title} for owner: ${ownerId}`);
+      console.log(`[ItemService] Creating item: ${dto.title} for owner: ${numericOwnerId}`);
       
       const item = this.itemRepository.create({
         ...dto,
-        owner: { id: ownerId } as any,
+        owner: { id: numericOwnerId } as any,
         category: { id: dto.categoryId } as any,
         address: { id: dto.addressId } as any,
       });
@@ -102,8 +126,9 @@ export class ItemService {
   }
 
   async findAll(categoryId?: number, filters: any = {}): Promise<Item[]> {
-    const { page, limit, excludeOwnerId, ownerId, excludeId, ...otherFilters } = filters;
-    const cacheKey = `items:list:${categoryId || 'all'}:${JSON.stringify(filters)}`;
+    const { page, limit, excludeOwnerId, ownerId, excludeId, lat, lng, distance, ...otherFilters } = filters;
+    const sortedFilters = this.sortObjectKeys(filters);
+    const cacheKey = `items:list:${categoryId || 'all'}:${JSON.stringify(sortedFilters)}`;
     const cachedItems = await this.cacheManager.get<Item[]>(cacheKey);
     if (cachedItems) {
       return cachedItems;
@@ -118,12 +143,56 @@ export class ItemService {
       .leftJoinAndSelect('item.address', 'address')
       .leftJoinAndSelect('item.pricings', 'pricing');
 
+    if (lat && lng && distance) {
+      const radiusInKm = parseFloat(distance.replace(/[^\d.]/g, '')) || 5;
+      // Haversine formula for distance calculation in SQL
+      queryBuilder.andWhere(
+        `(6371 * acos(cos(radians(:lat)) * cos(radians(address.lat)) * cos(radians(address.lng) - radians(:lng)) + sin(radians(:lat)) * sin(radians(address.lat)))) <= :radius`,
+        { lat, lng, radius: radiusInKm }
+      );
+    }
+
     if (excludeOwnerId) {
-      queryBuilder.andWhere('owner.id != :excludeOwnerId', { excludeOwnerId });
+      const numericExcludeId = Number(excludeOwnerId);
+      if (!isNaN(numericExcludeId)) {
+        queryBuilder.andWhere('owner.id != :excludeOwnerId', { excludeOwnerId: numericExcludeId });
+      }
+    }
+
+    if (filters?.priceMin !== undefined) {
+      queryBuilder.andWhere('pricing.price >= :priceMin', { priceMin: filters.priceMin });
+    }
+
+    if (filters?.priceMax !== undefined) {
+      queryBuilder.andWhere('pricing.price <= :priceMax', { priceMax: filters.priceMax });
+    }
+
+    // New Filters: Brand, Accessibility, Warranty
+    if (filters?.brand) {
+      // Check across all potential detail tables - simpler to use dynamic join approach if category is known
+      // or join all if not, but here we usually have category context if brand is used
+      queryBuilder.andWhere('(details.brand ILIKE :brand OR details.brand ILIKE :brand)', { brand: `%${filters.brand}%` });
+    }
+
+    if (filters?.accessibility) {
+      queryBuilder.andWhere('item.accessibility ILIKE :access', { access: `%${filters.accessibility}%` });
+    }
+
+    if (filters?.warrantyOnly) {
+      // Custom warranty logic: excluding "no", "-", null, or empty
+      queryBuilder.andWhere(
+        "details.warranty IS NOT NULL AND details.warranty != '' AND LOWER(details.warranty) != 'no' AND details.warranty != '-'",
+      );
     }
 
     if (ownerId) {
-      queryBuilder.andWhere('owner.id = :ownerId', { ownerId });
+      const numericOwnerId = Number(ownerId);
+      if (!isNaN(numericOwnerId)) {
+        queryBuilder.andWhere('owner.id = :ownerId', { ownerId: numericOwnerId });
+      } else {
+        // If ownerId is a guest string, it won't have any items anyway
+        queryBuilder.andWhere('1=0'); 
+      }
     }
 
     if (excludeId) {
@@ -192,55 +261,65 @@ export class ItemService {
 
     const items = await queryBuilder.getRawAndEntities();
 
-    // Fetch review stats separately for these items
-    const itemIds = items.entities.map(e => e.id);
+    // Fetch review stats separately for these owners to align with Service Provider Reputation
+    const ownerIds = Array.from(new Set(items.entities.map(e => e.owner?.id).filter(id => !!id)));
     let reviewStats = [];
-    if (itemIds.length > 0) {
+    if (ownerIds.length > 0) {
       reviewStats = await this.reviewRepository
         .createQueryBuilder('r')
-        .select('r.item_id', 'itemId')
+        .select('r.owner_id', 'owner_id')
         .addSelect('COUNT(r.id)', 'count')
-        .addSelect('AVG(r.rating)', 'avgRating')
-        .where('r.item_id IN (:...itemIds)', { itemIds })
-        .groupBy('r.item_id')
+        .addSelect('AVG(r.rating)', 'avg_rating')
+        .where('r.owner_id IN (:...ownerIds)', { ownerIds })
+        .groupBy('r.owner_id')
         .getRawMany();
     }
 
     const reviewStatsMap = new Map();
     reviewStats.forEach((rs: any) => {
-      reviewStatsMap.set(rs.itemId, rs);
+      reviewStatsMap.set(rs.owner_id, rs);
     });
 
-    const result = items.entities.map((entity) => {
-      const stats = reviewStatsMap.get(entity.id);
+    let result = items.entities.map((entity) => {
+      const stats = reviewStatsMap.get(entity.owner?.id);
       return {
         ...entity,
         reviewCount: parseInt(stats?.count || '0', 10),
-        averageRating: parseFloat(stats?.avgRating || '0'),
+        averageRating: parseFloat(stats?.avg_rating || '0'),
       };
     });
+
+    // Apply Rating Filter in JS
+    if (filters?.ratingMin !== undefined || filters?.ratingMax !== undefined) {
+      result = result.filter(item => {
+        const rating = item.averageRating;
+        const minVal = filters.ratingMin !== undefined ? filters.ratingMin : 0;
+        const maxVal = filters.ratingMax !== undefined ? filters.ratingMax : 5;
+        return rating >= minVal && rating <= maxVal;
+      });
+    }
 
     await this.cacheManager.set(cacheKey, result, 300); // 5 minutes cache
     return result as any;
   }
 
-  private async clearItemsCache() {
-    const keys = await (this.cacheManager as any).store.keys('items:list:*');
-    for (const key of keys) {
-      await this.cacheManager.del(key);
-    }
-    await this.cacheManager.del('all_items'); // Legacy
-  }
 
-  async findMyItems(ownerId: number) {
+  async findMyItems(ownerId: number | string) {
+    if (typeof ownerId === 'string' && ownerId.startsWith('guest')) {
+      return [];
+    }
     return this.itemRepository.find({
-      where: { owner: { id: ownerId } },
+      where: { owner: { id: Number(ownerId) } },
       relations: ['category', 'address', 'owner'],
       order: { createdAt: 'DESC' },
     });
   }
 
-  async findMyItemsWithReviewStats(ownerId: number) {
+  async findMyItemsWithReviewStats(ownerId: number | string) {
+    if (typeof ownerId === 'string' && ownerId.startsWith('guest')) {
+      return [];
+    }
+    const numericOwnerId = Number(ownerId);
     const queryBuilder = this.itemRepository.createQueryBuilder('item')
       .leftJoinAndSelect('item.category', 'category')
       .leftJoinAndSelect('item.address', 'address')
@@ -248,7 +327,7 @@ export class ItemService {
       .leftJoin('item.reviews', 'review')
       .addSelect('COUNT(review.id)', 'reviewCount')
       .addSelect('AVG(review.rating)', 'averageRating')
-      .where('item.owner_id = :ownerId', { ownerId })
+      .where('item.owner_id = :ownerId', { ownerId: numericOwnerId })
       .groupBy('item.id')
       .addGroupBy('category.id')
       .addGroupBy('address.id')
@@ -267,9 +346,12 @@ export class ItemService {
     });
   }
 
-  async findByOwner(ownerId: number) {
+  async findByOwner(ownerId: number | string) {
+    if (typeof ownerId === 'string' && ownerId.startsWith('guest')) {
+      return [];
+    }
     return this.itemRepository.find({
-      where: { owner: { id: ownerId } },
+      where: { owner: { id: Number(ownerId) } },
       relations: ['category', 'address', 'pricings'],
       order: { createdAt: 'DESC' },
     });
@@ -366,9 +448,9 @@ export class ItemService {
     const queryBuilder = this.itemRepository.createQueryBuilder('item')
       .leftJoinAndSelect('item.address', 'address')
       .leftJoinAndSelect('item.pricings', 'pricing')
-      .leftJoin('reviews', 'review', 'review.owner_id = item.owner_id')
-      .addSelect('COUNT(review.id)', 'reviewCount')
-      .addSelect('AVG(review.rating)', 'averageRating')
+      .leftJoinAndSelect('item.owner', 'owner')
+      .leftJoinAndSelect('owner.individualUser', 'individualUser')
+      .leftJoinAndSelect('owner.company', 'company')
       .where('address.lat BETWEEN :swLat AND :neLat', { swLat, neLat })
       .andWhere('address.lng BETWEEN :swLng AND :neLng', { swLng, neLng });
 
@@ -425,19 +507,41 @@ export class ItemService {
 
     const items = await queryBuilder.getRawMany();
 
+    // Fetch review stats separately for these owners to align with Service Provider Reputation
+    const ownerIds = Array.from(new Set(items.map(i => i.item_owner_id).filter(id => !!id)));
+    let reviewStats = [];
+    if (ownerIds.length > 0) {
+      reviewStats = await this.reviewRepository
+        .createQueryBuilder('r')
+        .select('r.owner_id', 'owner_id')
+        .addSelect('COUNT(r.id)', 'count')
+        .addSelect('AVG(r.rating)', 'avg_rating')
+        .where('r.owner_id IN (:...ownerIds)', { ownerIds })
+        .groupBy('r.owner_id')
+        .getRawMany();
+    }
+
+    const reviewStatsMap = new Map();
+    reviewStats.forEach((rs: any) => {
+      reviewStatsMap.set(rs.owner_id, rs);
+    });
+
     // Map to lightweight DTO
-    return items.map(item => ({
-      id: item.item_id,
-      title: item.item_title,
-      price: item.pricing_price || 0,
-      latitude: parseFloat(item.address_lat as any),
-      longitude: parseFloat(item.address_lng as any),
-      averageRating: parseFloat(item.averageRating) || 0,
-      reviewCount: parseInt(item.reviewCount, 10) || 0,
-    }));
+    return items.map(item => {
+      const stats = reviewStatsMap.get(item.item_owner_id);
+      return {
+        id: item.item_id,
+        title: item.item_title,
+        price: item.pricing_price || 0,
+        latitude: parseFloat(item.address_lat as any),
+        longitude: parseFloat(item.address_lng as any),
+        averageRating: parseFloat(stats?.avg_rating || '0'),
+        reviewCount: parseInt(stats?.count || '0', 10),
+      };
+    });
   }
 
-  async recordInteraction(itemId: number, type: string, userId?: number, sessionId?: string) {
+  async recordInteraction(itemId: number, type: string, userId?: number | string, sessionId?: string) {
     const dayKey = new Date().toISOString().split('T')[0];
     
     // Anti-spam: Upsert interaction to avoid multiple views from same user/session on the same day
@@ -448,7 +552,7 @@ export class ItemService {
         .values({
           item: { id: itemId } as any,
           type: type as InteractionType,
-          userId,
+          userId: typeof userId === 'number' ? userId : undefined,
           sessionId,
           dayKey,
         })
@@ -511,7 +615,10 @@ export class ItemService {
       .addSelect('COALESCE((scores.decayed14 + 0.3 * (scores.recent3 - scores.prev3)), 0)', 'final_score');
 
     if (excludeOwnerId) {
-      queryBuilder.andWhere('owner.id != :excludeOwnerId', { excludeOwnerId });
+      const numericExcludeId = Number(excludeOwnerId);
+      if (!isNaN(numericExcludeId)) {
+        queryBuilder.andWhere('owner.id != :excludeOwnerId', { excludeOwnerId: numericExcludeId });
+      }
     }
 
     if (excludeId) {
@@ -556,31 +663,31 @@ export class ItemService {
       scoresMap.set(r.item_id, r.final_score);
     });
 
-    // Fetch review stats separately for these items to avoid GROUP BY issues
-    const itemIds: number[] = Array.from(entitiesMap.keys());
+    // Fetch review stats separately for these owners to align with Service Provider Reputation
+    const ownerIds: number[] = Array.from(new Set(items.entities.map(e => e.owner?.id).filter(id => !!id)));
     let reviewStats = [];
-    if (itemIds.length > 0) {
+    if (ownerIds.length > 0) {
       reviewStats = await this.reviewRepository
         .createQueryBuilder('r')
-        .select('r.item_id', 'itemId')
+        .select('r.owner_id', 'owner_id')
         .addSelect('COUNT(r.id)', 'count')
-        .addSelect('AVG(r.rating)', 'avgRating')
-        .where('r.item_id IN (:...itemIds)', { itemIds })
-        .groupBy('r.item_id')
+        .addSelect('AVG(r.rating)', 'avg_rating')
+        .where('r.owner_id IN (:...ownerIds)', { ownerIds })
+        .groupBy('r.owner_id')
         .getRawMany();
     }
 
     const reviewStatsMap = new Map();
     reviewStats.forEach((rs: any) => {
-      reviewStatsMap.set(rs.itemId, rs);
+      reviewStatsMap.set(rs.owner_id, rs);
     });
 
     const result = Array.from(entitiesMap.values()).map(entity => {
-      const stats = reviewStatsMap.get(entity.id);
+      const stats = reviewStatsMap.get(entity.owner?.id);
       return {
         ...entity,
         reviewCount: parseInt(stats?.count || '0', 10),
-        averageRating: parseFloat(stats?.avgRating || '0'),
+        averageRating: parseFloat(stats?.avg_rating || '0'),
         trendingScore: parseFloat(scoresMap.get(entity.id) || '0'),
       };
     });
@@ -589,13 +696,15 @@ export class ItemService {
     return result as any;
   }
 
-  async search(query: string, categoryId?: number, page: number = 1, limit: number = 20) {
+  async search(query: string, categoryId?: number, page: number = 1, limit: number = 20, filters: any = {}) {
     if (!query || query.trim().length === 0) {
-      return this.findAll(categoryId, { page, limit });
+      return this.findAll(categoryId, { page, limit, ...filters });
     }
 
+    const { lat, lng, distance } = filters;
     const normalizedQuery = query.toLowerCase().trim().replace(/[^\w\s]/g, '');
-    const cacheKey = `search:${normalizedQuery}:${categoryId || 'all'}:${page}:${limit}`;
+    const sortedFilters = this.sortObjectKeys(filters);
+    const cacheKey = `search:${normalizedQuery}:${categoryId || 'all'}:${page}:${limit}:${JSON.stringify(sortedFilters)}`;
     const cachedResults = await this.cacheManager.get(cacheKey);
     if (cachedResults) return cachedResults;
 
@@ -611,7 +720,7 @@ export class ItemService {
     // Format query for tsquery (prefix search)
     const formattedQuery = expandedQuery
       .split(' ')
-      .filter((word) => word.length > 0)
+      .filter((word) => word.length > 0 && word !== '|')
       .map((word) => `${word}:*`)
       .join(' | ');
 
@@ -630,26 +739,55 @@ export class ItemService {
       // Rating and Popularity boost subquery
       .leftJoin(subQuery => {
           return subQuery
-              .select('item_id', 'itemId')
-              .addSelect('COUNT(*)', 'viewCount')
+              .select('item_id', 'item_id')
+              .addSelect('COUNT(*)', 'view_count')
               .from(ItemInteraction, 'ii')
               .where("ii.type = 'VIEW'")
               .groupBy('item_id');
-      }, 'pop', 'pop.itemId = item.id')
+      }, 'pop', 'pop.item_id = item.id')
       .leftJoin(subQuery => {
           return subQuery
-              .select('item_id', 'itemId')
-              .addSelect('AVG(rating)', 'avgRating')
-              .addSelect('COUNT(*)', 'revCount')
+              .select('owner_id', 'owner_id')
+              .addSelect('AVG(rating)', 'avg_rating')
+              .addSelect('COUNT(*)', 'rev_count')
               .from(Review, 'r')
-              .groupBy('item_id');
-      }, 'rev', 'rev.itemId = item.id')
-      .addSelect(`COALESCE(pop.viewCount, 0)`, 'popularity')
-      .addSelect(`COALESCE(rev.avgRating, 0)`, 'rating')
-      .where(`item.search_vector @@ to_tsquery('english', :tsQuery) OR item.title % :rawQuery`, { 
+              .groupBy('owner_id');
+      }, 'rev', 'rev.owner_id = item.owner_id')
+      .addSelect(`COALESCE(pop.view_count, 0)`, 'popularity')
+      .addSelect(`COALESCE(rev.avg_rating, 0)`, 'rating')
+      .where(`(item.search_vector @@ to_tsquery('english', :tsQuery) OR item.title % :rawQuery)`, { 
           tsQuery: formattedQuery, 
           rawQuery: normalizedQuery 
       });
+
+    if (filters?.priceMin !== undefined) {
+      results.andWhere('pricing.price >= :priceMin', { priceMin: filters.priceMin });
+    }
+    if (filters?.priceMax !== undefined) {
+      results.andWhere('pricing.price <= :priceMax', { priceMax: filters.priceMax });
+    }
+
+    if (filters?.brand) {
+      results.andWhere('details.brand ILIKE :brand', { brand: `%${filters.brand}%` });
+    }
+
+    if (filters?.accessibility) {
+      results.andWhere('item.accessibility ILIKE :access', { access: `%${filters.accessibility}%` });
+    }
+
+    if (filters?.warrantyOnly) {
+      results.andWhere(
+        "details.warranty IS NOT NULL AND details.warranty != '' AND LOWER(details.warranty) != 'no' AND details.warranty != '-'",
+      );
+    }
+
+    if (lat && lng && distance) {
+        const radiusInKm = parseFloat(distance.replace(/[^\d.]/g, '')) || 5;
+        results.andWhere(
+            `(6371 * acos(cos(radians(:lat)) * cos(radians(address.lat)) * cos(radians(address.lng) - radians(:lng)) + sin(radians(:lat)) * sin(radians(address.lat)))) <= :radius`,
+            { lat, lng, radius: radiusInKm }
+        );
+    }
 
     if (categoryId) {
         // Get all subcategories recursively (simplified for search)
@@ -660,8 +798,8 @@ export class ItemService {
     results.addSelect(`
         (0.7 * ts_rank_cd(item.search_vector, to_tsquery('english', :tsQuery))) + 
         (0.3 * similarity(item.title, :rawQuery)) + 
-        (0.01 * LEAST(COALESCE(pop.viewCount, 0), 100)) + 
-        (0.05 * COALESCE(rev.avgRating, 0))
+        (0.01 * LEAST(COALESCE(pop.view_count, 0), 100)) + 
+        (0.05 * COALESCE(rev.avg_rating, 0))
     `, 'finalScore');
 
     results.orderBy('item.search_vector @@ to_tsquery(\'english\', :tsQuery)', 'DESC') // Exact matches first
@@ -671,15 +809,25 @@ export class ItemService {
 
     const rawAndEntities = await results.getRawAndEntities();
 
-    const finalResult = rawAndEntities.entities.map((entity, index) => {
+    let finalResult = rawAndEntities.entities.map((entity, index) => {
       const raw = rawAndEntities.raw[index];
       return {
         ...entity,
         searchScore: parseFloat(raw.finalScore),
-        reviewCount: parseInt(raw.revCount || '0', 10),
+        reviewCount: parseInt(raw.rev_count || '0', 10),
         averageRating: parseFloat(raw.rating || '0'),
       };
     });
+
+    // Apply Rating Filter in JS
+    if (filters?.ratingMin !== undefined || filters?.ratingMax !== undefined) {
+      finalResult = finalResult.filter(item => {
+        const rating = item.averageRating;
+        const minVal = filters.ratingMin !== undefined ? filters.ratingMin : 0;
+        const maxVal = filters.ratingMax !== undefined ? filters.ratingMax : 5;
+        return rating >= minVal && rating <= maxVal;
+      });
+    }
 
     await this.cacheManager.set(cacheKey, finalResult, 120); // 120s TTL as requested
     return finalResult;

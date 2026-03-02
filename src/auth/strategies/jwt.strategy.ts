@@ -25,9 +25,24 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    const { sub } = payload;
+    const { sub, isGuest, role } = payload;
+
+    // Handle Guest users - skip DB lookup
+    if (isGuest || role === 'guest' || role === 'GUEST') {
+      return {
+        id: sub,
+        role: 'guest',
+        isActive: true,
+      };
+    }
+
+    // For registered users, ensure sub is a valid integer before querying
+    if (isNaN(Number(sub))) {
+      throw new UnauthorizedException('Invalid user ID');
+    }
+
     const user = await this.userRepository.findOne({ 
-      where: { id: sub },
+      where: { id: Number(sub) },
       relations: ['individualUser', 'company']
     });
 

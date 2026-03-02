@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import { ChatService } from './chat.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { User } from '../user/entities/user.entity';
+import { ImageProcessingService } from '../common/services/image-processing.service';
 
 const chatUploadDir = join(process.cwd(), 'uploads', 'chat');
 if (!fs.existsSync(chatUploadDir)) {
@@ -20,7 +21,10 @@ if (!fs.existsSync(chatUploadDir)) {
 @Controller('chat')
 @UseGuards(JwtAuthGuard)
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly imageProcessingService: ImageProcessingService,
+  ) {}
 
   @Post('thread')
   @ApiOperation({ summary: 'Create a new chat thread for an item' })
@@ -55,6 +59,16 @@ export class ChatController {
   @ApiOperation({ summary: 'Mark all messages in a thread as read' })
   async markThreadAsRead(@Param('id') threadId: number, @Req() req: any) {
     return this.chatService.markThreadAsRead(threadId, req.user.id);
+  }
+  
+  @Post('bulk-share')
+  @ApiOperation({ summary: 'Share an item to multiple chat threads' })
+  async bulkShareItem(
+    @Body('threadIds') threadIds: number[],
+    @Body('itemId') itemId: number,
+    @Req() req: any,
+  ) {
+    return this.chatService.bulkShareItem(req.user.id, threadIds, itemId);
   }
 
   @Post('thread/:threadId/upload-attachments')
@@ -102,10 +116,10 @@ export class ChatController {
       },
     }),
     fileFilter: (req, file, cb) => {
-      const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
+      const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf', '.webp'];
       const ext = extname(file.originalname).toLowerCase();
       if (!allowedExtensions.includes(ext)) {
-        return cb(new BadRequestException('Only images (jpg, png) and PDFs are allowed'), false);
+        return cb(new BadRequestException('Only images (jpg, png, webp) and PDFs are allowed'), false);
       }
       cb(null, true);
     },
@@ -113,6 +127,7 @@ export class ChatController {
       fileSize: 20 * 1024 * 1024, // 20MB
     },
   }))
+  @ApiOperation({ summary: 'Upload multiple chat attachments (images or PDFs)' })
   async uploadAttachments(@UploadedFiles() files: Express.Multer.File[], @Req() req: any) {
     const threadId = req.params.threadId || req.headers['x-thread-id'] || 'unknown';
     console.log(`[ChatController] [SUCCESS] Received ${files?.length} files for thread: ${threadId}`);
@@ -120,9 +135,25 @@ export class ChatController {
     if (!files || files.length === 0) {
       throw new BadRequestException('No files were uploaded.');
     }
+
+    const processedUrls = await Promise.all(
+      files.map(async (file) => {
+        const ext = extname(file.originalname).toLowerCase();
+        // If it's an image, process it. If it's a PDF, keep as is.
+        if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
+          return this.imageProcessingService.processAndReplace(file.path, {
+            format: 'webp',
+            quality: 80,
+            maxWidth: 1280,
+          });
+        }
+        // Return relative path for PDF
+        return `uploads/chat/${threadId}/${file.filename}`;
+      })
+    );
     
     return {
-      urls: files.map(file => `uploads/chat/${threadId}/${file.filename}`),
+      urls: processedUrls,
       originalNames: files.map(file => file.originalname)
     };
   }

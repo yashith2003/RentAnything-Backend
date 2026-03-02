@@ -9,11 +9,15 @@ import { extname, join } from 'path';
 import * as fs from 'fs';
 import { UserService } from './user.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ImageProcessingService } from '../common/services/image-processing.service';
 
 @ApiTags('user')
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly imageProcessingService: ImageProcessingService,
+  ) {}
 
   @Get('profile')
   @UseGuards(AuthGuard('jwt'))
@@ -57,6 +61,12 @@ export class UserController {
         cb(null, `${randomName}${extname(file.originalname)}`);
       },
     }),
+    fileFilter: (req, file, cb) => {
+      if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+        return cb(new BadRequestException('Only image files (jpg, jpeg, png, webp) are allowed!'), false);
+      }
+      cb(null, true);
+    },
   }))
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -70,8 +80,14 @@ export class UserController {
     if (!file) {
       throw new BadRequestException('No file was uploaded.');
     }
-    const url = `uploads/dp/${req.user.id}/${file.filename}`;
-    console.log(`[UserController] DP uploaded for user ${req.user.id}:`, url);
-    return { url };
+    
+    const relativePath = await this.imageProcessingService.processAndReplace(file.path, {
+      format: 'jpeg',
+      quality: 82,
+      maxWidth: 800,
+    });
+
+    console.log(`[UserController] DP uploaded for user ${req.user.id}:`, relativePath);
+    return { url: relativePath };
   }
 }

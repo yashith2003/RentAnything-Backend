@@ -74,6 +74,9 @@ export class Item {
   @Column({ name: 'image_url', nullable: true })
   imageUrl: string;
 
+  @Column({ nullable: true })
+  accessibility: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

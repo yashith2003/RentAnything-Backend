@@ -16,33 +16,72 @@ export class UserService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  async findOne(id: number): Promise<any> {
-    const cacheKey = `user_profile_${id}`;
+  async findOne(id: number | string): Promise<any> {
+    // Handle Guest profile request
+    if (typeof id === 'string' && id.startsWith('guest')) {
+      return {
+        id: id,
+        role: UserRole.GUEST,
+        email: 'Guest Mode',
+        phone: 'GUEST',
+        status: 'active',
+        joinedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isActive: true,
+        individualUser: {
+          id: -1,
+          fullName: 'Guest',
+          address: '',
+          location: '',
+          avatarUrl: null,
+          description: '',
+        },
+        company: null,
+        profileImage: null,
+      };
+    }
+
+    const numericId = Number(id);
+    if (isNaN(numericId)) return null;
+
+    const cacheKey = `user_profile_${numericId}`;
     const cachedProfile = await this.cacheManager.get(cacheKey);
     
     if (cachedProfile) {
-      console.log(`[UserService] Cache HIT for user ${id}`);
+      console.log(`[UserService] Cache HIT for user ${numericId}`);
       return cachedProfile;
     }
 
-    console.log(`[UserService] Cache MISS for user ${id}`);
+    console.log(`[UserService] Cache MISS for user ${numericId}`);
     const user = await this.userRepository.findOne({ 
-      where: { id },
+      where: { id: numericId },
       relations: ['individualUser', 'company', 'addresses']
     });
 
     if (!user) return null;
 
     // Map to unified response DTO
+    const details = user.role === UserRole.INDIVIDUAL ? user.individualUser : user.company;
+    
+    // Fallback for address/location if they are not set in the profile but exist in the addresses table
+    const primaryAddress = user.addresses?.[0]?.address;
+    
     const profile = {
       ...user,
+      individualUser: user.individualUser ? {
+        ...user.individualUser,
+        address: user.individualUser.address || primaryAddress || '',
+        location: user.individualUser.location || primaryAddress || '',
+      } : null,
+      company: user.company ? {
+        ...user.company,
+        address: user.company.address || primaryAddress || '',
+        location: user.company.location || primaryAddress || '',
+      } : null,
       profileImage: user.role === UserRole.INDIVIDUAL ? user.individualUser?.avatarUrl : user.company?.logoUrl,
     };
 
-    await this.cacheManager.set(cacheKey, profile, 600000); // 10 mins (milliseconds in some versions, seconds in others - check cache-manager version)
-    // Actually cache-manager-redis-yet usually uses seconds by default if ttl is number, but it depends on config.
-    // Let's assume seconds if number, or check package.json for cache-manager version.
-    
+    await this.cacheManager.set(cacheKey, profile, 600000);
     return profile;
   }
 

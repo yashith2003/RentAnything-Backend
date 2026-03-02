@@ -26,6 +26,9 @@ export class ChatMessage {
   @Column({ type: 'text' })
   content: string;
 
+  @Column({ name: 'type', type: 'varchar', default: 'text' })
+  type: string;
+
   @Column({ name: 'attachments', type: 'simple-array', nullable: true })
   attachments: string[];
 

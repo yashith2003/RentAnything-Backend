@@ -8,6 +8,7 @@ import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import * as fs from 'fs';
 import { ItemService } from './item.service';
+import { ImageProcessingService } from '../common/services/image-processing.service';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -26,7 +27,10 @@ if (!fs.existsSync(itemsUploadRootDir)) {
 @ApiTags('items')
 @Controller('items')
 export class ItemController {
-  constructor(private readonly itemService: ItemService) {}
+  constructor(
+    private readonly itemService: ItemService,
+    private readonly imageProcessingService: ImageProcessingService,
+  ) {}
 
   @Post()
   @UseGuards(AuthGuard('jwt'))
@@ -63,14 +67,21 @@ export class ItemController {
     },
   })
   @ApiOperation({ summary: 'Upload an item image (for new items, no ID yet)' })
-  uploadFile(@Request() req, @UploadedFile() file: Express.Multer.File) {
+  async uploadFile(@Request() req, @UploadedFile() file: Express.Multer.File) {
     console.log('[Upload] Received file:', file);
     if (!file) {
       throw new BadRequestException('No file was uploaded. Make sure you are sending a multipart/form-data request with a "file" field.');
     }
-    const url = `uploads/items/${req.user.id}/${file.filename}`;
-    console.log('[Upload] Saved item image at:', url);
-    return { url };
+    
+    const relativePath = await this.imageProcessingService.processAndReplace(file.path, {
+      format: 'webp',
+      quality: 80,
+      maxWidth: 1600,
+      watermarkText: 'RentAnything',
+    });
+
+    console.log('[Upload] Saved item image at:', relativePath);
+    return { url: relativePath };
   }
 
   // Item-specific upload — saves to uploads/item/:id/
@@ -100,14 +111,21 @@ export class ItemController {
     },
   })
   @ApiOperation({ summary: 'Upload an image for an existing item — saves to uploads/item/:id/' })
-  uploadItemImage(@Param('id') id: string, @Request() req: any, @UploadedFile() file: Express.Multer.File) {
+  async uploadItemImage(@Param('id') id: string, @Request() req: any, @UploadedFile() file: Express.Multer.File) {
     console.log(`[Upload] Received image for item ${id}:`, file);
     if (!file) {
       throw new BadRequestException('No file was uploaded.');
     }
-    const url = `uploads/items/${req.user.id}/${id}/${file.filename}`;
-    console.log('[Upload] Saved item image at:', url);
-    return { url };
+
+    const relativePath = await this.imageProcessingService.processAndReplace(file.path, {
+      format: 'webp',
+      quality: 80,
+      maxWidth: 1600,
+      watermarkText: 'RentAnything',
+    });
+
+    console.log('[Upload] Saved item image at:', relativePath);
+    return { url: relativePath };
   }
 
 
@@ -141,8 +159,20 @@ export class ItemController {
 
   @Get('search')
   @ApiOperation({ summary: 'Search items using hybrid full-text and similarity ranking' })
-  search(@Query('q') q: string, @Query('cat') cat?: string, @Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.itemService.search(q, cat ? +cat : undefined, page ? +page : 1, limit ? +limit : 20);
+  search(
+    @Query('q') q: string, 
+    @Query('cat') cat?: string, 
+    @Query('page') page?: string, 
+    @Query('limit') limit?: string,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+    @Query('distance') distance?: string,
+  ) {
+    return this.itemService.search(q, cat ? +cat : undefined, page ? +page : 1, limit ? +limit : 20, {
+      lat: lat ? +lat : undefined,
+      lng: lng ? +lng : undefined,
+      distance: distance
+    });
   }
 
   @Post(':id/interact')

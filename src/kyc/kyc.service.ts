@@ -19,19 +19,26 @@ export class KycService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  async getStatus(userId: number) {
-    const cacheKey = `kyc_status_${userId}`;
+  async getStatus(userId: number | string) {
+    if (typeof userId === 'string' && userId.startsWith('guest')) {
+      return {
+        overallStatus: KycStatus.NOT_STARTED,
+        items: {},
+      };
+    }
+    const numericUserId = Number(userId);
+    const cacheKey = `kyc_status_${numericUserId}`;
     const cached = await this.cacheManager.get(cacheKey);
     if (cached) return cached;
 
     let submission = await this.submissionRepository.findOne({
-      where: { userId },
+      where: { userId: numericUserId },
       relations: ['documents'],
     });
 
     if (!submission) {
       submission = await this.submissionRepository.save(
-        this.submissionRepository.create({ userId, overallStatus: KycStatus.NOT_STARTED })
+        this.submissionRepository.create({ userId: numericUserId, overallStatus: KycStatus.NOT_STARTED })
       );
       submission.documents = [];
     }
@@ -53,11 +60,15 @@ export class KycService {
     return result;
   }
 
-  async uploadDocument(userId: number, type: KycDocumentType, fileUrl: string) {
-    let submission = await this.submissionRepository.findOne({ where: { userId } });
+  async uploadDocument(userId: number | string, type: KycDocumentType, fileUrl: string) {
+    if (typeof userId === 'string' && userId.startsWith('guest')) {
+      throw new Error('Guests cannot upload KYC documents');
+    }
+    const numericUserId = Number(userId);
+    let submission = await this.submissionRepository.findOne({ where: { userId: numericUserId } });
     if (!submission) {
       submission = await this.submissionRepository.save(
-        this.submissionRepository.create({ userId, overallStatus: KycStatus.PENDING })
+        this.submissionRepository.create({ userId: numericUserId, overallStatus: KycStatus.PENDING })
       );
     }
 
@@ -82,7 +93,7 @@ export class KycService {
     }
 
     await this.recalculateOverallStatus(submission.id);
-    await this.cacheManager.del(`kyc_status_${userId}`);
+    await this.cacheManager.del(`kyc_status_${numericUserId}`);
 
     return document;
   }

@@ -1,6 +1,6 @@
 //src/incident/incident.service.ts
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { IncidentReport } from './entities/incident-report.entity';
@@ -20,15 +20,19 @@ export class IncidentService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async create(createIncidentDto: CreateIncidentDto, reporterId: number): Promise<IncidentReport> {
+  async create(createIncidentDto: CreateIncidentDto, reporterId: number | string): Promise<IncidentReport> {
+    if (typeof reporterId === 'string' && reporterId.startsWith('guest')) {
+      throw new BadRequestException('Guests cannot report incidents. Please signup.');
+    }
+    const numericReporterId = Number(reporterId);
     const rental = await this.rentalRepository.findOne({ where: { id: createIncidentDto.rentalId } });
     if (!rental) {
       throw new NotFoundException(`Rental with ID ${createIncidentDto.rentalId} not found`);
     }
 
-    const reporter = await this.userRepository.findOne({ where: { id: reporterId } });
+    const reporter = await this.userRepository.findOne({ where: { id: numericReporterId } });
     if (!reporter) {
-      throw new NotFoundException(`User with ID ${reporterId} not found`);
+      throw new NotFoundException(`User with ID ${numericReporterId} not found`);
     }
 
     const incident = this.incidentRepository.create({

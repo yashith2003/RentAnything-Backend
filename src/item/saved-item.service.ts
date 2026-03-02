@@ -16,10 +16,15 @@ export class SavedItemService {
     private readonly itemRepository: Repository<Item>,
   ) {}
 
-  async toggle(userId: number, itemId: number) {
+  async toggle(userId: number | string, itemId: number) {
+    if (typeof userId === 'string' && userId.startsWith('guest')) {
+      throw new BadRequestException('Guests cannot save items. Please signup.');
+    }
+
+    const numericUserId = Number(userId);
     const existing = await this.savedItemRepository.findOne({
       where: {
-        user: { id: userId },
+        user: { id: numericUserId },
         item: { id: itemId },
       },
     });
@@ -31,7 +36,7 @@ export class SavedItemService {
 
     try {
       await this.savedItemRepository.insert({
-        user: { id: userId } as any,
+        user: { id: numericUserId } as any,
         item: { id: itemId } as any,
       });
 
@@ -47,10 +52,15 @@ export class SavedItemService {
     }
   }
 
-  async findAll(userId: number) {
+  async findAll(userId: number | string) {
+    if (typeof userId === 'string' && userId.startsWith('guest')) {
+      return [];
+    }
+
+    const numericUserId = Number(userId);
     try {
       const savedItems = await this.savedItemRepository.find({
-        where: { user: { id: userId } },
+        where: { user: { id: numericUserId } },
         relations: [
           'item',
           'item.category',
@@ -81,7 +91,7 @@ export class SavedItemService {
         return si;
       });
 
-      console.log(`[SavedItemService] findAll for user ${userId}: ${safeItems.length} items`);
+      console.log(`[SavedItemService] findAll for user ${numericUserId}: ${safeItems.length} items`);
       return safeItems;
     } catch (error: any) {
       console.error('[SavedItemService] findAll ERROR:', error.message, error.stack);
@@ -89,10 +99,15 @@ export class SavedItemService {
     }
   }
 
-  async isSaved(userId: number, itemId: number) {
+  async isSaved(userId: number | string, itemId: number) {
+    if (typeof userId === 'string' && userId.startsWith('guest')) {
+      return false;
+    }
+
+    const numericUserId = Number(userId);
     const count = await this.savedItemRepository.count({
       where: { 
-        user: { id: userId }, 
+        user: { id: numericUserId }, 
         item: { id: itemId } 
       },
     });

@@ -2,6 +2,7 @@
 
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsOptional, IsEmail, IsBoolean, IsEnum } from 'class-validator';
+import { z } from 'zod';
 import { UserRole } from '../entities/user.entity';
 
 export class UpdateUserDto {
@@ -50,3 +51,17 @@ export class UpdateUserDto {
   @IsOptional()
   location?: string;
 }
+
+export const UpdateUserSchema = z.object({
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  fullName: z.string().optional(),
+  avatarUrl: z.string().optional(),
+  companyName: z.string().optional(),
+  logoUrl: z.string().optional(),
+  address: z.string().optional(),
+  description: z.string().optional(),
+  location: z.string().optional(),
+}).strict();
+
+export type UpdateUserType = z.infer<typeof UpdateUserSchema>;
