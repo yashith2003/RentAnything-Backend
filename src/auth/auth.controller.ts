@@ -45,6 +45,14 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @Post('resend-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend OTP to phone number' })
+  @ApiResponse({ status: 200, description: 'OTP resent successfully' })
+  async resendOtp(@Body() dto: { phone: string }) {
+    return this.authService.resendOtp(dto.phone);
+  }
+
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify OTP and get JWT token' })
@@ -59,5 +67,13 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
   async refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshToken(dto);
+  }
+
+  @Post('login-guest')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login as a guest' })
+  @ApiResponse({ status: 200, description: 'Guest login successful' })
+  async loginGuest() {
+    return this.authService.loginGuest();
   }
 }

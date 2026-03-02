@@ -15,13 +15,17 @@ export class AddressService {
     private addressRepository: Repository<Address>,
   ) {}
 
-  async create(dto: CreateAddressDto, userId: number) {
+  async create(dto: CreateAddressDto, userId: number | string) {
+    if (typeof userId === 'string' && userId.startsWith('guest')) {
+      throw new Error('Guests cannot save addresses');
+    }
+    const numericUserId = Number(userId);
     const address = this.addressRepository.create({
       address: dto.address,
       lat: dto.lat,
       lng: dto.lng,
       placeId: dto.placeId,
-      user: { id: userId } as any,
+      user: { id: numericUserId } as any,
     });
     return this.addressRepository.save(address);
   }
@@ -58,9 +62,13 @@ export class AddressService {
     }
   }
 
-  async findAll(userId: number) {
+  async findAll(userId: number | string) {
+    if (typeof userId === 'string' && userId.startsWith('guest')) {
+      return [];
+    }
+    const numericUserId = Number(userId);
     const addresses = await this.addressRepository.find({
-      where: { user: { id: userId } as any },
+      where: { user: { id: numericUserId } as any },
       order: { updatedAt: 'DESC' },
     });
 

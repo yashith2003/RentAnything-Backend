@@ -7,6 +7,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { CommonModule } from './common/common.module';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 import redisConfig from './config/redis.config';
@@ -71,6 +72,7 @@ import { ReviewModule } from './review/review.module';
         synchronize: true, // Only for development
       }),
     }),
+    CommonModule,
     AuthModule,
     UserModule,
     CategoryModule,

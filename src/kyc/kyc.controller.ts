@@ -5,6 +5,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { KycService } from './kyc.service';
 import { KycStatus, KycDocumentType } from './enums/kyc.enums';
+import { ImageProcessingService } from '../common/services/image-processing.service';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
@@ -12,7 +13,10 @@ import { existsSync, mkdirSync } from 'fs';
 @Controller('kyc')
 @UseGuards(JwtAuthGuard)
 export class KycController {
-  constructor(private readonly kycService: KycService) {}
+  constructor(
+    private readonly kycService: KycService,
+    private readonly imageProcessingService: ImageProcessingService,
+  ) {}
 
   @Get('status')
   async getStatus(@Req() req: any) {
@@ -40,8 +44,8 @@ export class KycController {
       fileSize: 5 * 1024 * 1024, // 5MB
     },
     fileFilter: (req, file, cb) => {
-      if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
-        return cb(new BadRequestException('Only image files (jpg, jpeg, png) are allowed!'), false);
+      if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+        return cb(new BadRequestException('Only image files (jpg, jpeg, png, webp) are allowed!'), false);
       }
       cb(null, true);
     },
@@ -55,8 +59,12 @@ export class KycController {
       throw new BadRequestException('File is required');
     }
     
-    // Store relative path for portability
-    const fileUrl = `/uploads/kyc/${req.user.id}/${file.filename}`;
+    const fileUrl = await this.imageProcessingService.processAndReplace(file.path, {
+      format: 'jpeg',
+      quality: 82,
+      maxWidth: 1600,
+    });
+
     return this.kycService.uploadDocument(req.user.id, type, fileUrl);
   }
 

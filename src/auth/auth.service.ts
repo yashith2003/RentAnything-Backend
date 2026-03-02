@@ -94,6 +94,8 @@ export class AuthService {
     const individual = this.individualUserRepository.create({
       user: savedUser,
       fullName: dto.fullName,
+      address: dto.address,
+      location: dto.address,
     });
     await this.individualUserRepository.save(individual);
 
@@ -142,6 +144,8 @@ export class AuthService {
       user: savedUser,
       companyName: dto.companyName,
       registrationNumber: dto.registrationNumber,
+      address: dto.officeAddress,
+      location: dto.officeAddress,
     });
     await this.companyRepository.save(company);
 
@@ -157,6 +161,20 @@ export class AuthService {
     return savedUser;
   }
 
+  async resendOtp(phone: string) {
+    const cachedInd = await this.cacheManager.get(`reg_ind_${phone}`);
+    const cachedComp = await this.cacheManager.get(`reg_comp_${phone}`);
+    const user = await this.userRepository.findOne({ where: { phone } });
+
+    if (!cachedInd && !cachedComp && !user) {
+      throw new NotFoundException('No active registration or user found for this phone number');
+    }
+
+    // In a real app, trigger SMS here
+    console.log(`[AuthService] Resending OTP to ${phone}`);
+    return { message: 'OTP resent successfully', phone };
+  }
+
   async login(dto: LoginDto) {
     const user = await this.userRepository.findOne({ where: { phone: dto.phone } });
     if (!user) {
@@ -165,6 +183,28 @@ export class AuthService {
 
     // In a real app, send OTP here. For now, it's mocked to 1111.
     return { message: 'OTP sent successfully', phone: dto.phone };
+  }
+
+  async loginGuest() {
+    const payload = { 
+      sub: `guest-${Math.random().toString(36).substring(2, 9)}`, 
+      role: UserRole.GUEST,
+      isGuest: true 
+    };
+
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: '24h',
+    });
+
+    return {
+      access_token: accessToken,
+      user: {
+        id: -1,
+        phone: 'GUEST',
+        role: UserRole.GUEST,
+        name: 'Guest',
+      }
+    };
   }
 
   async verifyOtp(dto: VerifyOtpDto) {
@@ -220,8 +260,13 @@ export class AuthService {
         secret: this.configService.get<string>('jwt.refreshSecret'),
       });
 
+      // Handle Guest refresh (if we ever decide to give them one) or prevent it
+      if (payload.isGuest || payload.role === UserRole.GUEST) {
+        throw new UnauthorizedException('Guests cannot refresh tokens. Please login again.');
+      }
+
       const user = await this.userRepository.findOne({ 
-        where: { id: payload.sub },
+        where: { id: Number(payload.sub) },
         relations: ['individualUser', 'company']
       });
 

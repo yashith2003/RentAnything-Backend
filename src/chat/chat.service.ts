@@ -18,9 +18,14 @@ export class ChatService {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  async createThread(itemId: number, userIdA: number, userIdB: number): Promise<ChatThread> {
-    const userOneId = Math.min(userIdA, userIdB);
-    const userTwoId = Math.max(userIdA, userIdB);
+  async createThread(itemId: number, userIdA: number | string, userIdB: number | string): Promise<ChatThread> {
+    if ((typeof userIdA === 'string' && userIdA.startsWith('guest')) || 
+        (typeof userIdB === 'string' && userIdB.startsWith('guest'))) {
+      throw new Error('Guests cannot participate in chats');
+    }
+
+    const userOneId = Math.min(Number(userIdA), Number(userIdB));
+    const userTwoId = Math.max(Number(userIdA), Number(userIdB));
 
     // Check if thread already exists for this user pair
     const existingThread = await this.threadRepository.findOne({
@@ -48,13 +53,25 @@ export class ChatService {
     return savedThread;
   }
 
-  async saveMessage(threadId: number, senderId: number, content: string, attachments?: string[], attachmentNames?: string[]): Promise<ChatMessage> {
-    console.log(`[ChatService] [SAVE_MESSAGE] Thread ${threadId}, Sender ${senderId}, Attachments:`, attachments);
+  async saveMessage(
+    threadId: number, 
+    senderId: number | string, 
+    content: string, 
+    attachments?: string[], 
+    attachmentNames?: string[],
+    type: string = 'text'
+  ): Promise<ChatMessage> {
+    if (typeof senderId === 'string' && senderId.startsWith('guest')) {
+      throw new Error('Guests cannot send messages');
+    }
+    const numericSenderId = Number(senderId);
+    console.log(`[ChatService] [SAVE_MESSAGE] Thread ${threadId}, Sender ${numericSenderId}, Attachments:`, attachments);
     const message = this.messageRepository.create({
       thread: { id: threadId },
       threadId, // Explicitly set for hooks/relations if needed
-      sender: { id: senderId },
+      sender: { id: numericSenderId },
       content,
+      type,
       attachments,
       attachmentNames,
     });
@@ -108,8 +125,12 @@ export class ChatService {
     return messages;
   }
 
-  async getUserThreads(userId: number): Promise<any[]> {
-    const cacheKey = `user_${userId}_threads`;
+  async getUserThreads(userId: number | string): Promise<any[]> {
+    if (typeof userId === 'string' && userId.startsWith('guest')) {
+      return [];
+    }
+    const numericUserId = Number(userId);
+    const cacheKey = `user_${numericUserId}_threads`;
     const cachedThreads = await this.cacheManager.get<any[]>(cacheKey);
 
     if (cachedThreads) {
@@ -117,7 +138,7 @@ export class ChatService {
     }
 
     const threads = await this.threadRepository.find({
-      where: [{ userOneId: userId }, { userTwoId: userId }],
+      where: [{ userOneId: numericUserId }, { userTwoId: numericUserId }],
       relations: [
         'item',
         'userOne',
@@ -135,7 +156,7 @@ export class ChatService {
       const unreadCount = await this.messageRepository.count({
         where: {
           threadId: thread.id,
-          senderId: Not(userId),
+          senderId: Not(numericUserId),
           isRead: false,
         },
       });
@@ -174,12 +195,27 @@ export class ChatService {
     return thread;
   }
 
-  async markThreadAsRead(threadId: number, userId: number): Promise<void> {
+  async markThreadAsRead(threadId: number, userId: number | string): Promise<void> {
+    if (typeof userId === 'string' && userId.startsWith('guest')) {
+      return;
+    }
+    const numericUserId = Number(userId);
     await this.messageRepository.update(
-      { threadId, senderId: Not(userId), isRead: false },
+      { threadId, senderId: Not(numericUserId), isRead: false },
       { isRead: true }
     );
-    await this.cacheManager.del(`user_${userId}_threads`);
+    await this.cacheManager.del(`user_${numericUserId}_threads`);
     await this.cacheManager.del(`thread_${threadId}_messages`);
+  }
+
+  async bulkShareItem(senderId: number | string, threadIds: number[], itemId: number): Promise<ChatMessage[]> {
+    const results: ChatMessage[] = [];
+    for (const threadId of threadIds) {
+      // Content for item_share could be the item ID or a deep link
+      const content = `rentanything://item/${itemId}`;
+      const message = await this.saveMessage(threadId, senderId, content, [], [], 'item_share');
+      results.push(message);
+    }
+    return results;
   }
 }

@@ -92,7 +92,7 @@ export class SearchSetupService implements OnModuleInit {
       // Items Trigger (BEFORE INSERT/UPDATE)
       await this.dataSource.query(`DROP TRIGGER IF EXISTS trg_items_search_vector ON items;`);
       await this.dataSource.query(`
-        CREATE TRIGGER trg_items_search_vector BEFORE INSERT OR UPDATE OF title, description ON items 
+        CREATE TRIGGER trg_items_search_vector BEFORE INSERT OR UPDATE OF title, description, updated_at ON items 
         FOR EACH ROW EXECUTE FUNCTION trigger_update_item_search_vector();
       `);
 
