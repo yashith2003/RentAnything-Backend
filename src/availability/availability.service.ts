@@ -1,4 +1,4 @@
-//src/availability/availability.service.ts
+//RentAnything-Backend/src/availability/availability.service.ts
 
 import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';

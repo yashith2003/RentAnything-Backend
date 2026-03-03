@@ -1,4 +1,4 @@
-//src/rental/rental.controller.ts
+//rentAnything-Backend/src/rental/rental.controller.ts
 
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';

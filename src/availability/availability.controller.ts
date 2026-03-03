@@ -1,4 +1,4 @@
-//src/availability/availability.controller.ts
+//RentAnything-Backend/src/availability/availability.controller.ts
 
 import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';

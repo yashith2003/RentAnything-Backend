@@ -1,6 +1,6 @@
-//src/item/dto/create-item.dto.ts
+//RentAnything-Backend/src/item/dto/create-item.dto.ts
 
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean, IsEnum, ValidateNested } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean, IsEnum, ValidateNested, IsArray } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { ItemStatus } from '../entities/item.entity';
@@ -77,6 +77,12 @@ export class CreateItemDto {
   @IsOptional()
   imageUrl?: string;
 
+  @ApiProperty({ example: ['https://example.com/sub1.jpg', 'https://example.com/sub2.jpg'], required: false })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  subImages?: string[];
+
   @ApiProperty({ example: 'daily', enum: ['hourly', 'daily', 'weekly', 'monthly'], required: false })
   @IsOptional()
   rateType?: string;
@@ -85,6 +91,11 @@ export class CreateItemDto {
   @IsNumber()
   @IsOptional()
   price?: number;
+
+  @ApiProperty({ example: 'Wheelchair accessible', required: false })
+  @IsString()
+  @IsOptional()
+  accessibility?: string;
 
   @ApiProperty({ type: () => [CreateAvailabilityDto], required: false })
   @IsOptional()

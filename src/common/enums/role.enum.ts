@@ -1,4 +1,4 @@
-//src/common/enums/role.enum.ts
+//RentAnything-Backend/src/common/enums/role.enum.ts
 
 export enum UserRole {
   INDIVIDUAL = 'individual',

@@ -1,4 +1,4 @@
-//src/auth/auth.service.ts
+//RentAnything-Backend/src/auth/auth.service.ts
 
 import { Injectable, UnauthorizedException, ConflictException, NotFoundException, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';

@@ -1,3 +1,5 @@
+//RentAnything-Backend/src/pricing/dto/create-pricing.dto.ts
+
 import { IsNumber, IsNotEmpty, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 

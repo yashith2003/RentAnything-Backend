@@ -1,4 +1,4 @@
-//src/item/dto/update-item.dto.ts
+//RentAnything-Backend/src/item/dto/update-item.dto.ts
 
 import { PartialType } from '@nestjs/swagger';
 import { CreateItemDto } from './create-item.dto';

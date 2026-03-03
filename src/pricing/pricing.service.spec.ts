@@ -1,3 +1,5 @@
+//RentAnything-Backend/src/pricing/pricing.service.spec.ts
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { PricingService } from './pricing.service';
 import { getRepositoryToken } from '@nestjs/typeorm';

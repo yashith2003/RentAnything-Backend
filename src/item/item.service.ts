@@ -45,11 +45,23 @@ export class ItemService {
   }
 
   private async clearItemsCache() {
-    // Basic clearing, ideally more specific
-    // For cache-manager v5+, store might be accessed differently or use stores
-    const keys = await (this.cacheManager as any).store.keys('items:*');
-    for (const key of keys) {
-      await this.cacheManager.del(key);
+    try {
+      // For cache-manager v5 with Redis store, keys might be on store or store.client
+      const store = (this.cacheManager as any).store;
+      if (store && typeof store.keys === 'function') {
+        const keys = await store.keys('items:*');
+        if (Array.isArray(keys)) {
+          for (const key of keys) {
+            await this.cacheManager.del(key);
+          }
+        }
+      } else {
+        // Fallback for different cache-manager versions or stores
+        // If we can't find keys, we might just have to wait for TTL or use a different strategy
+        console.warn('[ItemService] Could not clear items cache: store.keys is not a function');
+      }
+    } catch (error) {
+      console.error('[ItemService] Error clearing items cache:', error);
     }
   }
 
@@ -446,11 +458,15 @@ export class ItemService {
     const { neLat, neLng, swLat, swLng } = bounds;
 
     const queryBuilder = this.itemRepository.createQueryBuilder('item')
-      .leftJoinAndSelect('item.address', 'address')
-      .leftJoinAndSelect('item.pricings', 'pricing')
-      .leftJoinAndSelect('item.owner', 'owner')
-      .leftJoinAndSelect('owner.individualUser', 'individualUser')
-      .leftJoinAndSelect('owner.company', 'company')
+      .innerJoin('item.address', 'address')
+      .leftJoin('item.pricings', 'pricing')
+      .select([
+        'item.id',
+        'item.title',
+        'address.lat',
+        'address.lng',
+      ])
+      .addSelect('MIN(pricing.price)', 'minPrice')
       .where('address.lat BETWEEN :swLat AND :neLat', { swLat, neLat })
       .andWhere('address.lng BETWEEN :swLng AND :neLng', { swLng, neLng });
 
@@ -485,7 +501,7 @@ export class ItemService {
         else if (categoryName.includes('sport')) detailTable = 'sports_details';
 
         if (detailTable) {
-          queryBuilder.leftJoinAndSelect(`item.${detailTable.replace(/_([a-z])/g, (g) => g[1].toUpperCase())}`, 'details');
+          queryBuilder.leftJoin(`item.${detailTable.replace(/_([a-z])/g, (g) => g[1].toUpperCase())}`, 'details');
           
           // Filter out global filters (access, condition, distance) - only apply category-specific filters
           const globalFilterKeys = ['access', 'condition', 'distance'];
@@ -502,39 +518,38 @@ export class ItemService {
     }
 
     queryBuilder.groupBy('item.id')
-      .addGroupBy('address.id')
-      .addGroupBy('pricing.id');
+      .addGroupBy('address.id');
 
-    const items = await queryBuilder.getRawMany();
+    const rawData = await queryBuilder.getRawMany();
 
-    // Fetch review stats separately for these owners to align with Service Provider Reputation
-    const ownerIds = Array.from(new Set(items.map(i => i.item_owner_id).filter(id => !!id)));
+    // Fetch review stats separately for these items to avoid complex grouping
+    const itemIds = rawData.map(i => i.item_id);
     let reviewStats = [];
-    if (ownerIds.length > 0) {
+    if (itemIds.length > 0) {
       reviewStats = await this.reviewRepository
         .createQueryBuilder('r')
-        .select('r.owner_id', 'owner_id')
+        .select('r.item_id', 'item_id')
         .addSelect('COUNT(r.id)', 'count')
         .addSelect('AVG(r.rating)', 'avg_rating')
-        .where('r.owner_id IN (:...ownerIds)', { ownerIds })
-        .groupBy('r.owner_id')
+        .where('r.item_id IN (:...itemIds)', { itemIds })
+        .groupBy('r.item_id')
         .getRawMany();
     }
 
     const reviewStatsMap = new Map();
     reviewStats.forEach((rs: any) => {
-      reviewStatsMap.set(rs.owner_id, rs);
+      reviewStatsMap.set(rs.item_id, rs);
     });
 
     // Map to lightweight DTO
-    return items.map(item => {
-      const stats = reviewStatsMap.get(item.item_owner_id);
+    return rawData.map(item => {
+      const stats = reviewStatsMap.get(item.item_id);
       return {
         id: item.item_id,
         title: item.item_title,
-        price: item.pricing_price || 0,
-        latitude: parseFloat(item.address_lat as any),
-        longitude: parseFloat(item.address_lng as any),
+        price: parseFloat(item.minPrice || '0'),
+        latitude: parseFloat(item.address_lat),
+        longitude: parseFloat(item.address_lng),
         averageRating: parseFloat(stats?.avg_rating || '0'),
         reviewCount: parseInt(stats?.count || '0', 10),
       };

@@ -1,4 +1,4 @@
-//src/kyc/entities/kyc-document.entity.ts
+//RentAnything-Backend/src/kyc/entities/kyc-document.entity.ts
 
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, Unique } from 'typeorm';
 import { KycSubmission } from './kyc-submission.entity';

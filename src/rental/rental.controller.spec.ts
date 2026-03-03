@@ -1,3 +1,5 @@
+//RentAnything-Backend/src/rental/rental.controller.spec.ts
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { RentalController } from './rental.controller';
 import { RentalService } from './rental.service';

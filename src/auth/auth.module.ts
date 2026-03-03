@@ -1,4 +1,4 @@
-//src/auth/auth.module.ts
+//RentAnything-Backend/src/auth/auth.module.ts
 
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';

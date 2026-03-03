@@ -1,4 +1,4 @@
-//src/common/enums/status.enum.ts
+//RentAnything-Backend/src/common/enums/status.enum.ts
 
 export enum Status {
   PENDING = 'pending',

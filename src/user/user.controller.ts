@@ -4,7 +4,7 @@ import { Controller, Get, Put, Post, UseGuards, Request, Body, UseInterceptors, 
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { extname, join } from 'path';
 import * as fs from 'fs';
 import { UserService } from './user.service';
@@ -48,19 +48,7 @@ export class UserController {
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('file', {
-    storage: diskStorage({
-      destination: (req: any, file, cb) => {
-        const dpDir = join(process.cwd(), 'uploads', 'dp', String(req.user.id));
-        if (!fs.existsSync(dpDir)) {
-          fs.mkdirSync(dpDir, { recursive: true });
-        }
-        cb(null, dpDir);
-      },
-      filename: (req, file, cb) => {
-        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        cb(null, `${randomName}${extname(file.originalname)}`);
-      },
-    }),
+    storage: memoryStorage(),
     fileFilter: (req, file, cb) => {
       if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
         return cb(new BadRequestException('Only image files (jpg, jpeg, png, webp) are allowed!'), false);
@@ -81,13 +69,17 @@ export class UserController {
       throw new BadRequestException('No file was uploaded.');
     }
     
-    const relativePath = await this.imageProcessingService.processAndReplace(file.path, {
+    // Generate a unique path for the DP
+    const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
+    const relativePath = `dp/${req.user.id}/${randomName}.jpeg`;
+
+    const savedPath = await this.imageProcessingService.processAndSave(file.buffer, relativePath, {
       format: 'jpeg',
       quality: 82,
       maxWidth: 800,
     });
 
-    console.log(`[UserController] DP uploaded for user ${req.user.id}:`, relativePath);
-    return { url: relativePath };
+    console.log(`[UserController] DP uploaded for user ${req.user.id}:`, savedPath);
+    return { url: savedPath };
   }
 }

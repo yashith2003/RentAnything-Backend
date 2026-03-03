@@ -1,3 +1,5 @@
+//RentAnything-Backend/src/common/common.module.ts
+
 import { Module, Global } from '@nestjs/common';
 import { ImageProcessingService } from './services/image-processing.service';
 

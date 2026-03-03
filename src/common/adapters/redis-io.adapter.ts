@@ -1,4 +1,4 @@
-// src/common/adapters/redis-io.adapter.ts
+//RentAnything-Backend/src/common/adapters/redis-io.adapter.ts
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { ServerOptions } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';

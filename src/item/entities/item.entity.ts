@@ -1,4 +1,4 @@
-//src/item/entities/item.entity.ts
+//RentAnything-Backend/src/item/entities/item.entity.ts
 
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, OneToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
@@ -73,6 +73,9 @@ export class Item {
 
   @Column({ name: 'image_url', nullable: true })
   imageUrl: string;
+
+  @Column({ name: 'sub_images', type: 'text', array: true, default: [] })
+  subImages: string[];
 
   @Column({ nullable: true })
   accessibility: string;

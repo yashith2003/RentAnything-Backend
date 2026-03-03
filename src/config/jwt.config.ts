@@ -1,4 +1,4 @@
-//src/config/jwt.config.ts
+//RentAnything-Backend/src/config/jwt.config.ts
 
 import { registerAs } from '@nestjs/config';
 

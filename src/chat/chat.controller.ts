@@ -1,20 +1,13 @@
-//RentAnything-Backend/src/chat/chat.controller.ts
-
 import { Controller, Get, Post, Body, Param, UseGuards, Req, UseInterceptors, UploadedFiles, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { extname, join } from 'path';
 import * as fs from 'fs';
 import { ChatService } from './chat.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { User } from '../user/entities/user.entity';
 import { ImageProcessingService } from '../common/services/image-processing.service';
-
-const chatUploadDir = join(process.cwd(), 'uploads', 'chat');
-if (!fs.existsSync(chatUploadDir)) {
-  fs.mkdirSync(chatUploadDir, { recursive: true });
-}
 
 @ApiTags('chat')
 @ApiBearerAuth()
@@ -92,35 +85,7 @@ export class ChatController {
     },
   })
   @UseInterceptors(FilesInterceptor('files', 5, {
-    storage: diskStorage({
-      destination: (req: any, file, cb) => {
-        // Path params are parsed by NestJS/Express BEFORE multer destination is called
-        // if the route is defined with them.
-        const paramId = req.params?.threadId;
-        const headerId = req.headers['x-thread-id'];
-        const queryId = req.query?.threadId;
-
-        console.log(`[ChatController] [UPLOAD] Discovery on path 'thread/:threadId/upload-attachments':`, {
-          paramId,
-          headerId,
-          queryId,
-          url: req.url
-        });
-
-        const threadId = paramId || headerId || queryId || 'unknown';
-        console.log(`[ChatController] [UPLOAD] Final destination thread: ${threadId}`);
-        
-        const threadDir = join(chatUploadDir, threadId.toString());
-        if (!fs.existsSync(threadDir)) {
-          fs.mkdirSync(threadDir, { recursive: true });
-        }
-        cb(null, threadDir);
-      },
-      filename: (req, file, cb) => {
-        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        return cb(null, `${randomName}${extname(file.originalname)}`);
-      },
-    }),
+    storage: memoryStorage(),
     fileFilter: (req, file, cb) => {
       const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf', '.webp'];
       const ext = extname(file.originalname).toLowerCase();
@@ -145,16 +110,29 @@ export class ChatController {
     const processedUrls = await Promise.all(
       files.map(async (file) => {
         const ext = extname(file.originalname).toLowerCase();
-        // If it's an image, process it. If it's a PDF, keep as is.
+        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
+        
+        // If it's an image, process it.
         if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
-          return this.imageProcessingService.processAndReplace(file.path, {
+          const relativePath = `chat/${threadId}/${randomName}.webp`;
+          return this.imageProcessingService.processAndSave(file.buffer, relativePath, {
             format: 'webp',
             quality: 80,
             maxWidth: 1280,
           });
         }
-        // Return relative path for PDF
-        return `uploads/chat/${threadId}/${file.filename}`;
+        
+        // If it's a PDF, save it directly to disk
+        const relativePath = `chat/${threadId}/${randomName}${ext}`;
+        const absolutePath = join(process.cwd(), 'uploads', relativePath);
+        const dir = join(process.cwd(), 'uploads', 'chat', threadId.toString());
+        
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        await fs.promises.writeFile(absolutePath, file.buffer);
+        
+        return `uploads/${relativePath}`;
       })
     );
     

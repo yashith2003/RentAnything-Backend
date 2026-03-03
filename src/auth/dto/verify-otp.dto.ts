@@ -1,4 +1,4 @@
-//src/auth/dto/verify-otp.dto.ts
+//RentAnything-Backend/src/auth/dto/verify-otp.dto.ts
 
 import { IsNotEmpty, IsPhoneNumber, IsString, Length } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';

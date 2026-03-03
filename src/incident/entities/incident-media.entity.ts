@@ -1,4 +1,4 @@
-//src/incident/entities/incident-media.entity.ts
+//RentAnything-Backend/src/incident/entities/incident-media.entity.ts
 
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { IncidentReport } from './incident-report.entity';

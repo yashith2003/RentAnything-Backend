@@ -1,4 +1,4 @@
-//src/item/entities/vehicle-details.entity.ts
+//RentAnything-Backend/src/item/entities/vehicle-details.entity.ts
 
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, UpdateDateColumn } from 'typeorm';
 import { Item } from './item.entity';

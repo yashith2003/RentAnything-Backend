@@ -1,4 +1,4 @@
-//src/category/category.service.ts
+//RentAnything-Backend/src/category/category.service.ts
 
 import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';

@@ -1,4 +1,4 @@
-//src/item/dto/create-vehicle-details.dto.ts
+//RentAnything-Backend/src/item/dto/create-vehicle-details.dto.ts
 
 import { IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';

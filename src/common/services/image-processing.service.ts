@@ -1,3 +1,5 @@
+//RentAnything-Backend/src/common/services/image-processing.service.ts
+
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
@@ -17,39 +19,26 @@ export interface ImageProcessOptions {
 export class ImageProcessingService {
   private readonly logger = new Logger(ImageProcessingService.name);
 
-  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
+  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {
+    // Disable sharp cache to prevent file locking on Windows
+    sharp.cache(false);
+  }
 
   /**
-   * Processes an image: strips EXIF, resizes, and re-encodes.
-   * Replaces the original file and returns the relative path for the DB.
-   * @param absoluteFilePath The full path to the file on disk.
+   * Processes an image buffer: strips EXIF, resizes, and re-encodes.
+   * @param buffer Input image buffer.
    * @param options Compression and format options.
-   * @returns The relative path to the new file.
+   * @returns Processed image buffer.
    */
-  async processAndReplace(
-    absoluteFilePath: string,
+  async processBuffer(
+    buffer: Buffer,
     options: ImageProcessOptions = {}
-  ): Promise<string> {
+  ): Promise<Buffer> {
     const { format = 'jpeg', quality = 82, maxWidth = 1600 } = options;
-    
-    // Generate a cache key based on file path and options
-    const cacheKey = `img_proc:${crypto.createHash('md5').update(`${absoluteFilePath}:${JSON.stringify(options)}`).digest('hex')}`;
-    
+
     try {
-      const cachedResult = await this.cacheManager.get<string>(cacheKey);
-      if (cachedResult && fs.existsSync(path.join(process.cwd(), cachedResult))) {
-        this.logger.log(`Using cached image for ${absoluteFilePath}`);
-        return cachedResult;
-      }
-
-      const dir = path.dirname(absoluteFilePath);
-      const ext = path.extname(absoluteFilePath);
-      const filename = path.basename(absoluteFilePath, ext);
-      const newFilename = `${filename}.${format}`;
-      const newPath = path.join(dir, newFilename);
-
-      let transform = sharp(absoluteFilePath)
-        .rotate() // Auto-rotate based on EXIF before stripping
+      let transform = sharp(buffer)
+        .rotate()
         .resize({
           width: maxWidth,
           withoutEnlargement: true,
@@ -62,16 +51,14 @@ export class ImageProcessingService {
         transform = transform.jpeg({ quality, progressive: true });
       }
 
-      // Apply watermark AFTER resize/compression if requested
       if (options.watermarkText) {
         const metadata = await transform.metadata();
         const width = metadata.width || maxWidth;
-        const height = metadata.height || (width * 0.75); // Fallback aspect ratio
+        const height = metadata.height || Math.floor(width * 0.75);
 
-        // Dynamic scaling: 5% of width
         const fontSize = Math.floor(width * 0.05);
         const padding = Math.floor(width * 0.02);
-        
+
         const svgWatermark = `
           <svg width="${width}" height="${height}">
             <style>
@@ -80,15 +67,9 @@ export class ImageProcessingService {
                 font-size: ${fontSize}px; 
                 font-weight: bold; 
                 font-family: sans-serif;
-                filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.5));
               }
             </style>
-            <text 
-              x="${width - padding}" 
-              y="${height - padding}" 
-              text-anchor="end" 
-              class="text"
-            >
+            <text x="${width - padding}" y="${height - padding}" text-anchor="end" class="text">
               ${options.watermarkText}
             </text>
           </svg>
@@ -102,22 +83,81 @@ export class ImageProcessingService {
         ]);
       }
 
-      await transform.toFile(newPath);
+      return await transform.toBuffer();
+    } catch (error) {
+      this.logger.error(`Error processing image buffer: ${error.message}`);
+      throw error;
+    }
+  }
 
-      // If the extension changed (e.g. .png to .webp), delete the old file
+  /**
+   * Processes a buffer and saves it to a designated relative path under 'uploads'
+   * @param buffer Input image buffer.
+   * @param relativePath Target relative path (e.g. 'dp/62/avatar.jpg')
+   * @param options Options for processing.
+   * @returns The relative path starting with 'uploads/'
+   */
+  async processAndSave(
+    buffer: Buffer,
+    relativePath: string,
+    options: ImageProcessOptions = {}
+  ): Promise<string> {
+    const processedBuffer = await this.processBuffer(buffer, options);
+    
+    // Ensure relativePath doesn't start with / or uploads/ for consistency
+    let cleanPath = relativePath.startsWith('/') ? relativePath.substring(1) : relativePath;
+    if (cleanPath.startsWith('uploads/')) {
+        cleanPath = cleanPath.substring(8);
+    }
+    
+    const absolutePath = path.join(process.cwd(), 'uploads', cleanPath);
+    const dir = path.dirname(absolutePath);
+
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    await fs.promises.writeFile(absolutePath, processedBuffer);
+    
+    const finalRelativePath = `uploads/${cleanPath.replace(/\\/g, '/')}`;
+    return finalRelativePath;
+  }
+
+  /**
+   * Legacy method - refactored to be EPERM safe on Windows.
+   * Processes an image: strips EXIF, resizes, and re-encodes.
+   * Replaces the original file and returns the relative path for the DB.
+   */
+  async processAndReplace(
+    absoluteFilePath: string,
+    options: ImageProcessOptions = {}
+  ): Promise<string> {
+    try {
+      const buffer = await fs.promises.readFile(absoluteFilePath);
+      const { format = 'jpeg' } = options;
+      
+      const dir = path.dirname(absoluteFilePath);
+      const ext = path.extname(absoluteFilePath);
+      const filename = path.basename(absoluteFilePath, ext);
+      const newFilename = `${filename}.${format}`;
+      const newPath = path.join(dir, newFilename);
+
+      const processedBuffer = await this.processBuffer(buffer, options);
+      await fs.promises.writeFile(newPath, processedBuffer);
+
+      // Successfully wrote new file, now try to delete old one if different
       if (absoluteFilePath !== newPath) {
-        fs.unlinkSync(absoluteFilePath);
+        try {
+          await fs.promises.unlink(absoluteFilePath);
+        } catch (unlinkError) {
+          this.logger.warn(`Failed to delete original file ${absoluteFilePath}: ${unlinkError.message}`);
+        }
       }
 
-      // Return the path relative to the uploads root for storage in DB
       const uploadsIndex = newPath.indexOf('uploads');
-      const finalPath = uploadsIndex !== -1 ? newPath.substring(uploadsIndex) : newPath;
-      
-      await this.cacheManager.set(cacheKey, finalPath, 3600 * 1000); // Cache for 1 hour
-      return finalPath;
+      return uploadsIndex !== -1 ? newPath.substring(uploadsIndex).replace(/\\/g, '/') : newPath;
     } catch (error) {
-      this.logger.error(`Error processing image ${absoluteFilePath}: ${error.message}`);
-      // If processing fails, return original if it still exists, otherwise throw
+      this.logger.error(`Error in processAndReplace for ${absoluteFilePath}: ${error.message}`);
       return absoluteFilePath;
     }
   }

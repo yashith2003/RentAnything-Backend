@@ -1,4 +1,4 @@
-// src/category/entities/filter-config.entity.ts
+//RentAnything-Backend/src/category/entities/filter-config.entity.ts
 
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Category } from './category.entity';

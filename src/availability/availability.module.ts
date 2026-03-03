@@ -1,4 +1,4 @@
-//src/availability/availability.module.ts
+//RentAnything-Backend/src/availability/availability.module.ts
 
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
