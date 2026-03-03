@@ -1,3 +1,5 @@
+//RentAnything-Backend/src/pricing/pricing.controller.spec.ts
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { PricingController } from './pricing.controller';
 import { PricingService } from './pricing.service';

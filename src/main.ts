@@ -10,8 +10,12 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import sharp from 'sharp';
 
 async function bootstrap() {
+  // Disable sharp cache to prevent file locking on Windows
+  sharp.cache(false);
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.enableCors({

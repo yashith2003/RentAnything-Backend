@@ -1,4 +1,4 @@
-//src/pricing/pricing.controller.ts
+//RentAnything-Backend/src/pricing/pricing.controller.ts
 
 import { Post, Body, UseGuards, Controller } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';

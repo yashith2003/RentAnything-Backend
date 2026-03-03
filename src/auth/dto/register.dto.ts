@@ -1,4 +1,4 @@
-//src/auth/dto/register.dto.ts
+//RentAnything-Backend/src/auth/dto/register.dto.ts
 
 import { IsEmail, IsNotEmpty, IsOptional, IsString, IsPhoneNumber } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';

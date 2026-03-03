@@ -4,9 +4,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, 
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import * as fs from 'fs';
+import { memoryStorage } from 'multer';
 import { ItemService } from './item.service';
 import { ImageProcessingService } from '../common/services/image-processing.service';
 import { CreateItemDto } from './dto/create-item.dto';
@@ -14,15 +12,6 @@ import { UpdateItemDto } from './dto/update-item.dto';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { FilterItemsSchema } from './dto/filter-items.schema';
 import type { FilterItemsDto } from './dto/filter-items.schema';
-
-const uploadDir = join(process.cwd(), 'uploads');
-const itemsUploadRootDir = join(process.cwd(), 'uploads', 'items');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-if (!fs.existsSync(itemsUploadRootDir)) {
-  fs.mkdirSync(itemsUploadRootDir, { recursive: true });
-}
 
 @ApiTags('items')
 @Controller('items')
@@ -45,19 +34,7 @@ export class ItemController {
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('file', {
-    storage: diskStorage({
-      destination: (req: any, file, cb) => {
-        const userDir = join(process.cwd(), 'uploads', 'items', String(req.user.id));
-        if (!fs.existsSync(userDir)) {
-          fs.mkdirSync(userDir, { recursive: true });
-        }
-        cb(null, userDir);
-      },
-      filename: (req, file, cb) => {
-        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        return cb(null, `${randomName}${extname(file.originalname)}`);
-      }
-    })
+    storage: memoryStorage()
   }))
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -68,20 +45,23 @@ export class ItemController {
   })
   @ApiOperation({ summary: 'Upload an item image (for new items, no ID yet)' })
   async uploadFile(@Request() req, @UploadedFile() file: Express.Multer.File) {
-    console.log('[Upload] Received file:', file);
+    console.log('[Upload] Received file buffer size:', file?.size);
     if (!file) {
       throw new BadRequestException('No file was uploaded. Make sure you are sending a multipart/form-data request with a "file" field.');
     }
     
-    const relativePath = await this.imageProcessingService.processAndReplace(file.path, {
+    const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
+    const relativePath = `items/${req.user.id}/${randomName}.webp`;
+
+    const savedPath = await this.imageProcessingService.processAndSave(file.buffer, relativePath, {
       format: 'webp',
       quality: 80,
       maxWidth: 1600,
       watermarkText: 'RentAnything',
     });
 
-    console.log('[Upload] Saved item image at:', relativePath);
-    return { url: relativePath };
+    console.log('[Upload] Saved item image at:', savedPath);
+    return { url: savedPath };
   }
 
   // Item-specific upload — saves to uploads/item/:id/
@@ -89,19 +69,7 @@ export class ItemController {
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('file', {
-    storage: diskStorage({
-      destination: (req: any, file, cb) => {
-        const itemDir = join(process.cwd(), 'uploads', 'items', String(req.user.id), String(req.params.id));
-        if (!fs.existsSync(itemDir)) {
-          fs.mkdirSync(itemDir, { recursive: true });
-        }
-        cb(null, itemDir);
-      },
-      filename: (req, file, cb) => {
-        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        return cb(null, `${randomName}${extname(file.originalname)}`);
-      }
-    })
+    storage: memoryStorage()
   }))
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -112,20 +80,23 @@ export class ItemController {
   })
   @ApiOperation({ summary: 'Upload an image for an existing item — saves to uploads/item/:id/' })
   async uploadItemImage(@Param('id') id: string, @Request() req: any, @UploadedFile() file: Express.Multer.File) {
-    console.log(`[Upload] Received image for item ${id}:`, file);
+    console.log(`[Upload] Received image buffer size for item ${id}:`, file?.size);
     if (!file) {
       throw new BadRequestException('No file was uploaded.');
     }
 
-    const relativePath = await this.imageProcessingService.processAndReplace(file.path, {
+    const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
+    const relativePath = `items/${req.user.id}/${id}/${randomName}.webp`;
+
+    const savedPath = await this.imageProcessingService.processAndSave(file.buffer, relativePath, {
       format: 'webp',
       quality: 80,
       maxWidth: 1600,
       watermarkText: 'RentAnything',
     });
 
-    console.log('[Upload] Saved item image at:', relativePath);
-    return { url: relativePath };
+    console.log('[Upload] Saved item image at:', savedPath);
+    return { url: savedPath };
   }
 
 

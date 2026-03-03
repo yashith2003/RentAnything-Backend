@@ -1,4 +1,4 @@
-//src/rental/rental.module.ts
+//RentAnything-Backend/src/rental/rental.module.ts
 
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';

@@ -1,4 +1,4 @@
-//src/address/entities/address.entity.ts
+//RentAnything-Backend/src/address/entities/address.entity.ts
 
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, UpdateDateColumn } from 'typeorm';
 import { User } from '../../user/entities/user.entity';

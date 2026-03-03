@@ -1,4 +1,4 @@
-//src/config/redis.config.ts
+//RentAnything-Backend/src/config/redis.config.ts
 
 import { registerAs } from '@nestjs/config';
 

@@ -1,4 +1,4 @@
-//src/item/dto/create-sports-details.dto.ts
+//RentAnything-Backend/src/item/dto/create-sports-details.dto.ts
 
 import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';

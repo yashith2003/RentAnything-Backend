@@ -1,4 +1,4 @@
-//src/item/entities/synonym.entity.ts
+//RentAnything-Backend/src/item/entities/synonym.entity.ts
 
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 

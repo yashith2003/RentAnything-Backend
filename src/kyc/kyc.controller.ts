@@ -1,4 +1,4 @@
-//src/kyc/kyc.controller.ts
+//RentAnything-Backend/src/kyc/kyc.controller.ts
 
 import { Controller, Get, Post, Patch, Param, Body, UseGuards, Req, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -6,9 +6,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { KycService } from './kyc.service';
 import { KycStatus, KycDocumentType } from './enums/kyc.enums';
 import { ImageProcessingService } from '../common/services/image-processing.service';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { memoryStorage } from 'multer';
 
 @Controller('kyc')
 @UseGuards(JwtAuthGuard)
@@ -25,21 +23,7 @@ export class KycController {
 
   @Post('upload/:type')
   @UseInterceptors(FileInterceptor('file', {
-    storage: diskStorage({
-      destination: (req: any, file, cb) => {
-        const userId = req.user.id;
-        const uploadPath = join(process.cwd(), 'uploads', 'kyc', userId.toString());
-        if (!existsSync(uploadPath)) {
-          mkdirSync(uploadPath, { recursive: true });
-        }
-        cb(null, uploadPath);
-      },
-      filename: (req, file, cb) => {
-        const type = req.params.type;
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        cb(null, `${type}-${uniqueSuffix}${extname(file.originalname)}`);
-      },
-    }),
+    storage: memoryStorage(),
     limits: {
       fileSize: 5 * 1024 * 1024, // 5MB
     },
@@ -59,7 +43,11 @@ export class KycController {
       throw new BadRequestException('File is required');
     }
     
-    const fileUrl = await this.imageProcessingService.processAndReplace(file.path, {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const filename = `${type}-${uniqueSuffix}.jpeg`;
+    const relativePath = `kyc/${req.user.id}/${filename}`;
+
+    const fileUrl = await this.imageProcessingService.processAndSave(file.buffer, relativePath, {
       format: 'jpeg',
       quality: 82,
       maxWidth: 1600,

@@ -1,3 +1,5 @@
+//RentAnything-Backend/src/category/category.controller.ts
+
 import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { CategoryService } from './category.service';

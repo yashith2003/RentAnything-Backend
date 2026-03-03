@@ -1,3 +1,5 @@
+//RentAnything-Backend/src/kyc/enums/kyc.enums.ts
+
 export enum KycStatus {
   NOT_STARTED = 'NOT_STARTED',
   PENDING = 'PENDING',
