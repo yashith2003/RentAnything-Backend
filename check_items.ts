@@ -8,8 +8,8 @@ async function bootstrap() {
   const itemService = app.get(ItemService);
   
   console.log('--- Checking All Items ---');
-  const items = await itemService.findAll();
-  items.forEach(item => {
+  const result = await itemService.findAll();
+  result.items.forEach(item => {
     console.log(`ID: ${item.id}, Title: ${item.title}, ImageUrl: ${item.imageUrl}`);
   });
   

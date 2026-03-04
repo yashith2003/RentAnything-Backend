@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-//RentAnything/src/common/services/image-processing.service.ts
-=======
 //RentAnything-Backend/src/common/services/image-processing.service.ts
->>>>>>> 5b3aa7733a696cb8cea4b3144771ecdd6f0008a4
 
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -41,28 +37,8 @@ export class ImageProcessingService {
     const { format = 'jpeg', quality = 82, maxWidth = 1600 } = options;
 
     try {
-<<<<<<< HEAD
-      const cachedResult = await this.cacheManager.get<string>(cacheKey);
-      if (cachedResult && fs.existsSync(path.join(process.cwd(), cachedResult))) {
-        this.logger.log(`Using cached image for ${absoluteFilePath}`);
-        return cachedResult;
-      }
-
-      const dir = path.dirname(absoluteFilePath);
-      const ext = path.extname(absoluteFilePath);
-      // Create a unique name for the processed file to avoid EPERM when overwriting same file on Windows
-      const newFilename = `${path.basename(absoluteFilePath, ext)}_${crypto.randomBytes(4).toString('hex')}.${format}`;
-      const newPath = path.join(dir, newFilename);
-
-      // Read file into buffer to avoid file lock on Windows
-      const inputBuffer = fs.readFileSync(absoluteFilePath);
-
-      let transform = sharp(inputBuffer)
-        .rotate() // Auto-rotate based on EXIF before stripping
-=======
       let transform = sharp(buffer)
         .rotate()
->>>>>>> 5b3aa7733a696cb8cea4b3144771ecdd6f0008a4
         .resize({
           width: maxWidth,
           withoutEnlargement: true,
@@ -114,28 +90,6 @@ export class ImageProcessingService {
     }
   }
 
-<<<<<<< HEAD
-      // Always delete the original upload as we now have a processed version with a unique name
-      fs.unlink(absoluteFilePath, (err) => {
-        if (err) this.logger.error(`Failed to delete original file ${absoluteFilePath}: ${err.message}`);
-      });
-
-      // Return the path relative to the project root (starting from 'uploads')
-      const relativePath = path.relative(process.cwd(), newPath).replace(/\\/g, '/');
-      
-      await this.cacheManager.set(cacheKey, relativePath, 3600 * 1000);
-      return relativePath;
-    } catch (error) {
-      this.logger.error(`Error processing image ${absoluteFilePath}: ${error.message}`);
-      
-      // Fallback: Try to return a relative path to the original file if processing failed
-      try {
-        const relativeOriginal = path.relative(process.cwd(), absoluteFilePath).replace(/\\/g, '/');
-        return relativeOriginal;
-      } catch (e) {
-        return absoluteFilePath; // Absolute path as last resort
-      }
-=======
   /**
    * Processes a buffer and saves it to a designated relative path under 'uploads'
    * @param buffer Input image buffer.
@@ -205,7 +159,6 @@ export class ImageProcessingService {
     } catch (error) {
       this.logger.error(`Error in processAndReplace for ${absoluteFilePath}: ${error.message}`);
       return absoluteFilePath;
->>>>>>> 5b3aa7733a696cb8cea4b3144771ecdd6f0008a4
     }
   }
 }

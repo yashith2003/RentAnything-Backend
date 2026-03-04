@@ -3,6 +3,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
+import { ImageProcessingService } from '../common/services/image-processing.service';
 
 describe('ChatController', () => {
   let controller: ChatController;
@@ -24,6 +25,10 @@ describe('ChatController', () => {
         {
           provide: ChatService,
           useValue: mockChatService,
+        },
+        {
+          provide: ImageProcessingService,
+          useValue: { processImage: jest.fn() },
         },
       ],
     }).compile();

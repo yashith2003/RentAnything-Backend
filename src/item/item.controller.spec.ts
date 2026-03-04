@@ -3,6 +3,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ItemController } from './item.controller';
 import { ItemService } from './item.service';
+import { ImageProcessingService } from '../common/services/image-processing.service';
 
 describe('ItemController', () => {
   let controller: ItemController;
@@ -25,6 +26,10 @@ describe('ItemController', () => {
         {
           provide: ItemService,
           useValue: mockItemService,
+        },
+        {
+          provide: ImageProcessingService,
+          useValue: { processImage: jest.fn() },
         },
       ],
     }).compile();

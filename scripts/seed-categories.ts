@@ -30,11 +30,11 @@ async function seed() {
     );
 
     const categories = {
-        'Electronics': ['Computer', 'Phone', 'Tablet', 'Camera', 'Headphones'],
-        'Vehicle': ['Car', 'Bike', 'Truck', 'Cycle', 'Scooter'],
-        'Home': ['Furniture', 'Decoration', 'Appliances', 'Kitchen', 'Bedding'],
-        'Fashion': ['Men', 'Women', 'Kids', 'Accessories', 'Shoes'],
-        'Sport': ['Gym', 'Cricket', 'Football', 'Tennis', 'Badminton']
+        'Electronics': ['Computer', 'Phone', 'Tablet', 'Camera', 'Headphones', 'Drones', 'TV', 'Speakers'],
+        'Vehicle': ['Car', 'Bike', 'Truck', 'Cycle', 'Scooter', 'Van', 'Bus', 'Boat'],
+        'Home': ['Furniture', 'Decoration', 'Appliances', 'Kitchen', 'Bedding', 'Gardening', 'Lighting', 'Tools'],
+        'Fashion': ['Men', 'Women', 'Kids', 'Accessories', 'Shoes', 'Bags', 'Watches', 'Jewelry'],
+        'Sport': ['Gym', 'Cricket', 'Football', 'Tennis', 'Badminton', 'Camping', 'Hiking', 'Swimming']
     };
 
     for (const [mainCatName, subCats] of Object.entries(categories)) {

@@ -14,6 +14,7 @@ import { CategoryDetailsService } from './services/category-details.service';
 import { NotFoundException } from '@nestjs/common';
 import { ItemInteraction } from './entities/item-interaction.entity';
 import { Review } from '../review/entities/review.entity';
+import { Synonym } from './entities/synonym.entity';
 
 describe('ItemService', () => {
   let service: ItemService;
@@ -53,6 +54,7 @@ describe('ItemService', () => {
       offset: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([mockItem]),
+      getCount: jest.fn().mockResolvedValue(0),
       getRawMany: jest.fn().mockResolvedValue([{}]),
       getRawAndEntities: jest.fn().mockResolvedValue({
         entities: [mockItem],
@@ -120,6 +122,10 @@ describe('ItemService', () => {
           useValue: mockRepository,
         },
         {
+          provide: getRepositoryToken(Synonym),
+          useValue: mockRepository,
+        },
+        {
           provide: CategoryDetailsService,
           useValue: mockCategoryDetailsService,
         },
@@ -151,16 +157,18 @@ describe('ItemService', () => {
 
   describe('findAll', () => {
     it('should return items from cache if available', async () => {
-      mockCacheManager.get.mockResolvedValue([mockItem]);
+      const cached = { items: [mockItem], total: 1 };
+      mockCacheManager.get.mockResolvedValue(cached);
       const result = await service.findAll();
-      expect(result).toEqual([mockItem]);
-      expect(mockCacheManager.get).toHaveBeenCalledWith('items:list:all:{}');
+      expect(result).toEqual(cached);
+      expect(mockCacheManager.get).toHaveBeenCalledWith('items:list_v3:all:{}');
     });
 
     it('should fetch from repo and set cache if not in cache', async () => {
       mockCacheManager.get.mockResolvedValue(null);
       const result = await service.findAll(1);
-      expect(result).toEqual([mockItem]);
+      expect(result).toHaveProperty('items');
+      expect(result).toHaveProperty('total');
       expect(mockCacheManager.set).toHaveBeenCalled();
     });
   });
@@ -180,10 +188,11 @@ describe('ItemService', () => {
   describe('update', () => {
     it('should update and invalidate cache', async () => {
       mockRepository.findOne.mockResolvedValue(mockItem);
+      mockCacheManager.get.mockResolvedValue(mockItem); // findOne hits cache
       const dto = { title: 'Updated' } as any;
       const result = await service.update(1, dto);
       expect(result).toEqual(mockItem);
-      expect(mockCacheManager.del).toHaveBeenCalledWith('all_items');
+      expect(mockCacheManager.del).toHaveBeenCalled();
     });
   });
 

@@ -130,20 +130,17 @@ export class ItemController {
 
   @Get('search')
   @ApiOperation({ summary: 'Search items using hybrid full-text and similarity ranking' })
-  search(
-    @Query('q') q: string, 
-    @Query('cat') cat?: string, 
-    @Query('page') page?: string, 
-    @Query('limit') limit?: string,
-    @Query('lat') lat?: string,
-    @Query('lng') lng?: string,
-    @Query('distance') distance?: string,
-  ) {
-    return this.itemService.search(q, cat ? +cat : undefined, page ? +page : 1, limit ? +limit : 20, {
-      lat: lat ? +lat : undefined,
-      lng: lng ? +lng : undefined,
-      distance: distance
-    });
+  @UsePipes(new ZodValidationPipe(FilterItemsSchema))
+  search(@Query() query: FilterItemsDto) {
+    const { q, page, limit, ...filters } = query;
+    const catId = query.cat || query.categoryId || query.category;
+    return this.itemService.search(
+      q || '', 
+      catId ? +catId : undefined, 
+      page ? +page : 1, 
+      limit ? +limit : 20, 
+      filters
+    );
   }
 
   @Post(':id/interact')

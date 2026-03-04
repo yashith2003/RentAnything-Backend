@@ -5,8 +5,12 @@ import { z } from 'zod';
 
 export const FilterItemsSchema = z.object({
   cat: z.coerce.number().optional(),
+  categoryId: z.coerce.number().optional(),
+  category: z.coerce.number().optional(),
   priceMin: z.coerce.number().optional(),
   priceMax: z.coerce.number().optional(),
+  ratingMin: z.coerce.number().optional(),
+  ratingMax: z.coerce.number().optional(),
   minRating: z.coerce.number().optional(),
   distance: z.string().optional(),
   location: z.string().optional(),

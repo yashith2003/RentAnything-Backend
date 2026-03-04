@@ -15,6 +15,9 @@ describe('UserService', () => {
     id: 1,
     phone: '+94771234567',
     email: 'test@example.com',
+    individualUser: null,
+    company: null,
+    profileImage: undefined,
   };
 
   const mockRepository = {

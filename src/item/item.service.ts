@@ -137,13 +137,13 @@ export class ItemService {
     }
   }
 
-  async findAll(categoryId?: number, filters: any = {}): Promise<Item[]> {
+  async findAll(categoryId?: number, filters: any = {}): Promise<{ items: Item[]; total: number }> {
     const { page, limit, excludeOwnerId, ownerId, excludeId, lat, lng, distance, ...otherFilters } = filters;
     const sortedFilters = this.sortObjectKeys(filters);
-    const cacheKey = `items:list:${categoryId || 'all'}:${JSON.stringify(sortedFilters)}`;
-    const cachedItems = await this.cacheManager.get<Item[]>(cacheKey);
-    if (cachedItems) {
-      return cachedItems;
+    const cacheKey = `items:list_v3:${categoryId || 'all'}:${JSON.stringify(sortedFilters)}`;
+    const cached = await this.cacheManager.get<{ items: Item[]; total: number }>(cacheKey);
+    if (cached) {
+      return cached;
     }
 
     const queryBuilder = this.itemRepository.createQueryBuilder('item')
@@ -244,8 +244,12 @@ export class ItemService {
         if (detailTable) {
           queryBuilder.leftJoinAndSelect(`item.${detailTable.replace(/_([a-z])/g, (g) => g[1].toUpperCase())}`, 'details');
           
-          // Filter out global filters (access, condition, distance, ownerId, excludeId, excludeOwnerId) - only apply category-specific filters
-          const globalFilterKeys = ['access', 'condition', 'distance', 'ownerId', 'excludeId', 'excludeOwnerId', 'page', 'limit', 'cat', 'priceMin', 'priceMax', 'minRating', 'location'];
+          // Filter out global filters - only apply category-specific filters
+          const globalFilterKeys = [
+            'access', 'condition', 'distance', 'ownerId', 'excludeId', 'excludeOwnerId', 
+            'page', 'limit', 'cat', 'category', 'categoryId', 'priceMin', 'priceMax', 
+            'ratingMin', 'ratingMax', 'minRating', 'location', 'lat', 'lng', 'verification'
+          ];
           Object.keys(filters).forEach((key) => {
             if (!globalFilterKeys.includes(key)) {
               const val = filters[key];
@@ -271,6 +275,7 @@ export class ItemService {
     const skip = page ? (page - 1) * take : 0;
     queryBuilder.take(take).skip(skip);
 
+    const total = await queryBuilder.getCount();
     const items = await queryBuilder.getRawAndEntities();
 
     // Fetch review stats separately for these owners to align with Service Provider Reputation
@@ -292,7 +297,7 @@ export class ItemService {
       reviewStatsMap.set(rs.owner_id, rs);
     });
 
-    let result = items.entities.map((entity) => {
+    let resultItems = items.entities.map((entity) => {
       const stats = reviewStatsMap.get(entity.owner?.id);
       return {
         ...entity,
@@ -303,7 +308,7 @@ export class ItemService {
 
     // Apply Rating Filter in JS
     if (filters?.ratingMin !== undefined || filters?.ratingMax !== undefined) {
-      result = result.filter(item => {
+      resultItems = resultItems.filter(item => {
         const rating = item.averageRating;
         const minVal = filters.ratingMin !== undefined ? filters.ratingMin : 0;
         const maxVal = filters.ratingMax !== undefined ? filters.ratingMax : 5;
@@ -311,8 +316,9 @@ export class ItemService {
       });
     }
 
+    const result = { items: resultItems, total };
     await this.cacheManager.set(cacheKey, result, 300); // 5 minutes cache
-    return result as any;
+    return result;
   }
 
 
@@ -579,13 +585,13 @@ export class ItemService {
     }
   }
 
-  async findTrending(categoryId?: number, filters: any = {}): Promise<Item[]> {
+  async findTrending(categoryId?: number, filters: any = {}): Promise<{ items: Item[]; total: number }> {
     const { page = 1, limit = 20, search, excludeOwnerId, excludeId } = filters;
     const skip = (page - 1) * limit;
 
-    const cacheKey = `items:trending:${categoryId || 'all'}:${JSON.stringify(filters)}`;
-    const cachedItems = await this.cacheManager.get<Item[]>(cacheKey);
-    if (cachedItems) return cachedItems;
+    const cacheKey = `items:trending_v3:${categoryId || 'all'}:${JSON.stringify(filters)}`;
+    const cached = await this.cacheManager.get<{ items: Item[]; total: number }>(cacheKey);
+    if (cached) return cached;
 
     // Advanced SQL for decay and momentum
     const scoreSubquery = `
@@ -665,21 +671,22 @@ export class ItemService {
       .limit(limit)
       .offset(skip);
 
-    const items = await queryBuilder.getRawAndEntities();
-    
+    const rawAndEntities = await queryBuilder.getRawAndEntities();
+    const total = await queryBuilder.getCount();
+
     // Extract unique entities and their raw scores
     const entitiesMap = new Map();
-    items.entities.forEach(entity => {
+    rawAndEntities.entities.forEach(entity => {
       entitiesMap.set(entity.id, entity);
     });
 
     const scoresMap = new Map();
-    items.raw.forEach(r => {
+    rawAndEntities.raw.forEach(r => {
       scoresMap.set(r.item_id, r.final_score);
     });
 
     // Fetch review stats separately for these owners to align with Service Provider Reputation
-    const ownerIds: number[] = Array.from(new Set(items.entities.map(e => e.owner?.id).filter(id => !!id)));
+    const ownerIds: number[] = Array.from(new Set(rawAndEntities.entities.map(e => e.owner?.id).filter(id => !!id)));
     let reviewStats = [];
     if (ownerIds.length > 0) {
       reviewStats = await this.reviewRepository
@@ -697,7 +704,7 @@ export class ItemService {
       reviewStatsMap.set(rs.owner_id, rs);
     });
 
-    const result = Array.from(entitiesMap.values()).map(entity => {
+    const resultItems = Array.from(entitiesMap.values()).map(entity => {
       const stats = reviewStatsMap.get(entity.owner?.id);
       return {
         ...entity,
@@ -707,8 +714,9 @@ export class ItemService {
       };
     });
 
+    const result = { items: resultItems, total };
     await this.cacheManager.set(cacheKey, result, 120);
-    return result as any;
+    return result;
   }
 
   async search(query: string, categoryId?: number, page: number = 1, limit: number = 20, filters: any = {}) {
@@ -719,9 +727,9 @@ export class ItemService {
     const { lat, lng, distance } = filters;
     const normalizedQuery = query.toLowerCase().trim().replace(/[^\w\s]/g, '');
     const sortedFilters = this.sortObjectKeys(filters);
-    const cacheKey = `search:${normalizedQuery}:${categoryId || 'all'}:${page}:${limit}:${JSON.stringify(sortedFilters)}`;
-    const cachedResults = await this.cacheManager.get(cacheKey);
-    if (cachedResults) return cachedResults;
+    const cacheKey = `search_v3:${normalizedQuery}:${categoryId || 'all'}:${page}:${limit}:${JSON.stringify(sortedFilters)}`;
+    const cached = await this.cacheManager.get<{ items: Item[]; total: number }>(cacheKey);
+    if (cached) return cached;
 
     // Expand search query with synonyms
     const synonyms = await this.synonymRepository.find();
@@ -805,8 +813,53 @@ export class ItemService {
     }
 
     if (categoryId) {
-        // Get all subcategories recursively (simplified for search)
-        results.andWhere('item.category_id = :categoryId', { categoryId });
+      // Get all subcategories recursively
+      const subcategories = await this.categoryRepository.query(`
+        WITH RECURSIVE cat_tree AS (
+          SELECT id FROM categories WHERE id = $1
+          UNION ALL
+          SELECT c.id FROM categories c
+          INNER JOIN cat_tree ct ON c.parent_category_id = ct.id
+        )
+        SELECT id FROM cat_tree
+      `, [categoryId]);
+      const categoryIds = subcategories.map((c: any) => c.id);
+      results.andWhere('item.category_id IN (:...categoryIds)', { categoryIds });
+
+      // Joins for dynamic filters if category is specified
+      const category = await this.categoryRepository.findOne({ 
+        where: { id: categoryId },
+        relations: ['parentCategory']
+      });
+
+      if (category && filters && Object.keys(filters).length > 0) {
+        const categoryName = (category.parentCategory?.name || category.name).toLowerCase();
+        
+        let detailTable = '';
+        if (categoryName.includes('vehicle')) detailTable = 'vehicle_details';
+        else if (categoryName.includes('electronic')) detailTable = 'electronics_details';
+        else if (categoryName.includes('home')) detailTable = 'home_details';
+        else if (categoryName.includes('fashion')) detailTable = 'fashion_details';
+        else if (categoryName.includes('sport')) detailTable = 'sports_details';
+
+        if (detailTable) {
+          results.leftJoinAndSelect(`item.${detailTable.replace(/_([a-z])/g, (g) => g[1].toUpperCase())}`, 'details');
+          
+          const globalFilterKeys = [
+            'access', 'condition', 'distance', 'ownerId', 'excludeId', 'excludeOwnerId', 
+            'page', 'limit', 'cat', 'category', 'categoryId', 'priceMin', 'priceMax', 
+            'ratingMin', 'ratingMax', 'minRating', 'location', 'lat', 'lng', 'q', 'verification'
+          ];
+          Object.keys(filters).forEach((key) => {
+            if (!globalFilterKeys.includes(key)) {
+              const val = filters[key];
+              if (val !== undefined && val !== null && val !== '') {
+                 results.andWhere(`details.${key} = :${key}`, { [key]: val });
+              }
+            }
+          });
+        }
+      }
     }
 
     // Comprehensive score logic
@@ -822,9 +875,10 @@ export class ItemService {
       .limit(limit)
       .offset(skip);
 
+    const total = await results.getCount();
     const rawAndEntities = await results.getRawAndEntities();
 
-    let finalResult = rawAndEntities.entities.map((entity, index) => {
+    let items = rawAndEntities.entities.map((entity, index) => {
       const raw = rawAndEntities.raw[index];
       return {
         ...entity,
@@ -834,17 +888,18 @@ export class ItemService {
       };
     });
 
-    // Apply Rating Filter in JS
-    if (filters?.ratingMin !== undefined || filters?.ratingMax !== undefined) {
-      finalResult = finalResult.filter(item => {
+    // Apply Rating Filter in JS (Note: total count will be slightly off if rating filter is applied here instead of SQL)
+    if (filters?.ratingMin !== undefined || filters?.ratingMax !== undefined || filters?.minRating !== undefined) {
+      items = items.filter(item => {
         const rating = item.averageRating;
-        const minVal = filters.ratingMin !== undefined ? filters.ratingMin : 0;
+        const minVal = filters.ratingMin !== undefined ? filters.ratingMin : (filters.minRating !== undefined ? filters.minRating : 0);
         const maxVal = filters.ratingMax !== undefined ? filters.ratingMax : 5;
         return rating >= minVal && rating <= maxVal;
       });
     }
 
-    await this.cacheManager.set(cacheKey, finalResult, 120); // 120s TTL as requested
-    return finalResult;
+    const result = { items, total };
+    await this.cacheManager.set(cacheKey, result, 120); // 120s TTL
+    return result;
   }
 }
